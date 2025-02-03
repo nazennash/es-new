@@ -16,6 +16,7 @@ const CollaborativePuzzle = () => {
   const [image, setImage] = useState(null);
   const [inviteLink, setInviteLink] = useState('');
   const [showThumbnail, setShowThumbnail] = useState(false);
+  const [puzzleType, setPuzzleType] = useState('classic');
   
   // Get current user data
   const userData = JSON.parse(localStorage.getItem('authUser'));
@@ -63,6 +64,7 @@ const CollaborativePuzzle = () => {
             createdAt: Date.now(),
             hostId: userId,
             status: 'waiting',
+            puzzleType: puzzleType, // Add puzzle type
             players: {
               [userId]: {
                 id: userId,
@@ -120,7 +122,7 @@ const CollaborativePuzzle = () => {
         remove(ref(database, `games/${actualGameId}/players/${userId}`));
       }
     };
-  }, [actualGameId, userId, isHost, userName]);
+  }, [actualGameId, userId, isHost, userName, puzzleType]);
 
   // Handle image upload (host only)
   const handleImageUpload = async (event) => {
@@ -237,17 +239,49 @@ const CollaborativePuzzle = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 mb-8 transform hover:scale-[1.02] transition-all">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-              {isHost ? '🎮 Create New Game' : '🎮 Join Game'}
-            </h1>
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
-            >
-              <ArrowLeft size={20} />
-              <span>Back</span>
-            </button>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+                {isHost ? '🎮 Create New Game' : '🎮 Join Game'}
+              </h1>
+              <button
+                onClick={() => navigate('/')}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
+              >
+                <ArrowLeft size={20} />
+                <span>Back</span>
+              </button>
+            </div>
+            
+            {/* Add Puzzle Type Selector */}
+            {isHost && (
+              <div className="flex items-center gap-4">
+                <span className="text-white">Puzzle Type:</span>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'classic', icon: '🧩', label: 'Classic' },
+                    { id: 'cube', icon: '🎲', label: 'Cube' },
+                    { id: 'sphere', icon: '🌐', label: 'Sphere' },
+                    { id: 'pyramid', icon: '🔺', label: 'Pyramid' },
+                    { id: 'cylinder', icon: '🗞️', label: 'Cylinder' },
+                    { id: 'tower', icon: '🏰', label: 'Tower' }
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      onClick={() => setPuzzleType(type.id)}
+                      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
+                        puzzleType === type.id
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      <span>{type.icon}</span>
+                      <span>{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

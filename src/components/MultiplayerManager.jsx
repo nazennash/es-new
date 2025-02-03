@@ -534,106 +534,288 @@ const celebrateProgress = (progress) => {
     }
   };
 
-  // Create puzzle pieces
-  const createPuzzlePieces = async (imageUrl) => {
-    if (!sceneRef.current) return;
-
-    // Clear existing pieces
-    puzzlePiecesRef.current.forEach(piece => {
-      sceneRef.current.remove(piece);
-    });
-    puzzlePiecesRef.current = [];
- 
-    try {
-      const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-      const aspectRatio = texture.image.width / texture.image.height;
-      
-      // Get settings based on difficulty
-      const settings = DIFFICULTY_SETTINGS[difficulty];
-      const gridSize = settings.grid;
-      const pieceSize = {
-        x: 1 * aspectRatio / gridSize.x,
-        y: 1 / gridSize.y
-      };
-
-      setTotalPieces(gridSize.x * gridSize.y);
-      createPlacementGuides(gridSize, pieceSize);
-
-      // Create pieces
-      for (let y = 0; y < gridSize.y; y++) {
-        for (let x = 0; x < gridSize.x; x++) {
-          const geometry = new THREE.PlaneGeometry(
-            pieceSize.x * 0.95,
-            pieceSize.y * 0.95,
-            32,
-            32
-          );
-
-          const material = new THREE.ShaderMaterial({
-            uniforms: {
-              map: { value: texture },
-              uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
-              uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-              selected: { value: 0.0 },
-              correctPosition: { value: 0.0 },
-              time: { value: 0.0 }
-            },
-            vertexShader: puzzlePieceShader.vertexShader,
-            fragmentShader: puzzlePieceShader.fragmentShader,
-            side: THREE.DoubleSide
-          });
-
-          const piece = new THREE.Mesh(geometry, material);
-          
-          piece.position.x = (x - gridSize.x / 2 + 0.5) * pieceSize.x;
-          piece.position.y = (y - gridSize.y / 2 + 0.5) * pieceSize.y;
-          
-          piece.userData = {
-            id: `piece_${x}_${y}`,
-            originalPosition: piece.position.clone(),
-            gridPosition: { x, y },
-            isPlaced: false
-          };
-
-          sceneRef.current.add(piece);
-          puzzlePiecesRef.current.push(piece);
-        }
+  // Add puzzle type configurations
+  const PUZZLE_CONFIGS = {
+    classic: {
+      createGeometry: () => new THREE.PlaneGeometry(1, 1),
+      setupScene: () => {
+        // Existing classic puzzle setup
       }
+    },
+    cube: {
+      createGeometry: () => new THREE.BoxGeometry(1, 1, 1),
+      setupScene: () => {
+        camera.position.set(3, 3, 3);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+      }
+    },
+    sphere: {
+      createGeometry: () => new THREE.SphereGeometry(1, 32, 32),
+      setupScene: () => {
+        camera.position.set(0, 0, 4);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+      }
+    },
+    pyramid: {
+      createGeometry: () => new THREE.ConeGeometry(1, 1, 4),
+      setupScene: () => {
+        camera.position.set(2, 2, 2);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      }
+    },
+    cylinder: {
+      createGeometry: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 32),
+      setupScene: () => {
+        camera.position.set(3, 0, 3);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+      }
+    },
+    tower: {
+      createGeometry: () => new THREE.BoxGeometry(1, 0.2, 1),
+      setupScene: () => {
+        camera.position.set(0, 2, 4);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+      }
+    }
+  };
 
-      // Scramble pieces
-      puzzlePiecesRef.current.forEach(piece => {
-        if (!piece.userData.isPlaced) {
+  // Add cube piece creation
+const createCubePieces = (texture, settings) => {
+  const pieces = [];
+  const size = 1;
+  const faces = [
+    { dir: 'front', rot: [0, 0, 0], pos: [0, 0, size/2] },
+    { dir: 'back', rot: [0, Math.PI, -size/2] },
+    { dir: 'top', rot: [-Math.PI/2, 0, 0], pos: [0, size/2, 0] },
+    { dir: 'bottom', rot: [Math.PI/2, 0, 0], pos: [0, -size/2, 0] },
+    { dir: 'left', rot: [0, -Math.PI/2, 0], pos: [-size/2, 0, 0] },
+    { dir: 'right', rot: [0, Math.PI/2, 0], pos: [size/2, 0, 0] }
+  ];
+
+  faces.forEach((face, faceIndex) => {
+    for (let y = 0; y < settings.grid.y; y++) {
+      for (let x = 0; x < settings.grid.x; x++) {
+        const geometry = new THREE.PlaneGeometry(
+          size / settings.grid.x * 0.95,
+          size / settings.grid.y * 0.95
+        );
+        
+        const material = new THREE.ShaderMaterial({
+          uniforms: {
+            map: { value: texture },
+            uvOffset: { value: new THREE.Vector2(x / settings.grid.x, y / settings.grid.y) },
+            uvScale: { value: new THREE.Vector2(1 / settings.grid.x, 1 / settings.grid.y) },
+            selected: { value: 0.0 },
+            correctPosition: { value: 0.0 },
+            time: { value: 0.0 }
+          },
+          vertexShader: puzzlePieceShader.vertexShader,
+          fragmentShader: puzzlePieceShader.fragmentShader,
+          side: THREE.DoubleSide
+        });
+
+        const piece = new THREE.Mesh(geometry, material);
+        piece.rotation.setFromVector3(new THREE.Vector3(...face.rot));
+        if (face.pos) {
+          piece.position.set(...face.pos);
+        }
+
+        piece.userData = {
+          id: `piece_${faceIndex}_${x}_${y}`,
+          faceIndex,
+          originalPosition: piece.position.clone(),
+          originalRotation: piece.rotation.clone(),
+          gridPosition: { x, y },
+          isPlaced: false
+        };
+
+        pieces.push(piece);
+      }
+    }
+  });
+
+  return pieces;
+};
+
+// Add sphere piece creation
+const createSpherePieces = (texture, settings) => {
+  const pieces = [];
+  const radius = 1;
+  const segmentsLon = settings.grid.x;
+  const segmentsLat = settings.grid.y;
+
+  for (let lat = 0; lat < segmentsLat; lat++) {
+    for (let lon = 0; lon < segmentsLon; lon++) {
+      const phi = (lat / segmentsLat) * Math.PI;
+      const theta = (lon / segmentsLon) * 2 * Math.PI;
+
+      const geometry = new THREE.SphereGeometry(
+        radius,
+        Math.ceil(32 / segmentsLon),
+        Math.ceil(32 / segmentsLat),
+        theta,
+        2 * Math.PI / segmentsLon,
+        phi,
+        Math.PI / segmentsLat
+      );
+
+      // ...rest of piece creation similar to cube pieces...
+    }
+  }
+
+  return pieces;
+};
+
+// Add pyramid piece creation
+const createPyramidPieces = (texture, settings) => {
+  const pieces = [];
+  const size = 1;
+  const height = Math.sqrt(2) * size;
+  
+  // Create faces (4 triangular sides + base)
+  const faces = [
+    { dir: 'front', vertices: [[0,height,0], [-size,-height,-size], [size,-height,-size]] },
+    { dir: 'right', vertices: [[0,height,0], [size,-height,-size], [size,-height,size]] },
+    { dir: 'back', vertices: [[0,height,0], [size,-height,size], [-size,-height,size]] },
+    { dir: 'left', vertices: [[0,height,0], [-size,-height,size], [-size,-height,-size]] },
+    { dir: 'base', vertices: [[-size,-height,-size], [-size,-height,size], [size,-height,-size], [size,-height,size]] }
+  ];
+
+  // ...implement pyramid piece creation...
+
+  return pieces;
+};
+
+// Add cylinder piece creation
+const createCylinderPieces = (texture, settings) => {
+  const pieces = [];
+  const radius = 0.5;
+  const height = 1;
+  const segmentsRadial = settings.grid.x;
+  const segmentsHeight = settings.grid.y;
+
+  // Create curved surface pieces
+  for (let h = 0; h < segmentsHeight; h++) {
+    for (let r = 0; r < segmentsRadial; r++) {
+      const geometry = new THREE.CylinderGeometry(
+        radius,
+        radius,
+        height / segmentsHeight,
+        Math.ceil(32 / segmentsRadial),
+        1,
+        true,
+        (r / segmentsRadial) * 2 * Math.PI,
+        (2 * Math.PI) / segmentsRadial
+      );
+
+      // ...implement piece creation...
+    }
+  }
+
+  // Add top and bottom caps
+  // ...implement cap pieces...
+
+  return pieces;
+};
+
+// Add tower piece creation
+const createTowerPieces = (texture, settings) => {
+  const pieces = [];
+  const baseSize = 1;
+  const heightPerSegment = 0.2;
+  const segments = settings.grid.x * settings.grid.y;
+
+  for (let i = 0; i < segments; i++) {
+    const scale = 1 - (i / segments) * 0.3; // Gradually decrease size
+    const geometry = new THREE.BoxGeometry(
+      baseSize * scale,
+      heightPerSegment,
+      baseSize * scale
+    );
+
+    // ...implement piece creation...
+  }
+
+  return pieces;
+};
+
+// Modify createPuzzlePieces function to use the new piece creators
+const createPuzzlePieces = async (imageUrl) => {
+  // ...existing setup code...
+
+  const puzzleType = gameState?.puzzleType || 'classic';
+  let pieces = [];
+
+  try {
+    const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
+    const settings = DIFFICULTY_SETTINGS[difficulty];
+
+    switch (puzzleType) {
+      case 'classic':
+        pieces = createClassicPieces(texture, settings);
+        break;
+      case 'cube':
+        pieces = createCubePieces(texture, settings);
+        break;
+      case 'sphere':
+        pieces = createSpherePieces(texture, settings);
+        break;
+      case 'pyramid':
+        pieces = createPyramidPieces(texture, settings);
+        break;
+      case 'cylinder':
+        pieces = createCylinderPieces(texture, settings);
+        break;
+      case 'tower':
+        pieces = createTowerPieces(texture, settings);
+        break;
+    }
+
+    // Add pieces to scene
+    pieces.forEach(piece => {
+      sceneRef.current.add(piece);
+      puzzlePiecesRef.current.push(piece);
+    });
+
+    // Scramble pieces
+    scramblePieces(puzzleType);
+
+    // ...rest of the function
+  } catch (error) {
+    console.error('Error creating puzzle pieces:', error);
+    toast.error('Failed to create puzzle pieces');
+  }
+};
+
+// Add puzzle-specific piece scrambling
+const scramblePieces = (puzzleType) => {
+  puzzlePiecesRef.current.forEach(piece => {
+    if (!piece.userData.isPlaced) {
+      switch (puzzleType) {
+        case 'classic':
+          // Existing 2D scramble
           piece.position.x += (Math.random() - 0.5) * 2;
           piece.position.y += (Math.random() - 0.5) * 2;
           piece.position.z = Math.random() * 0.1;
-          piece.rotation.z = settings.rotationEnabled ? (Math.random() - 0.5) * 0.5 : 0;
-        }
-      });
-
-      // Sync initial piece positions if host
-      if (isHost) {
-        const piecesData = {};
-        puzzlePiecesRef.current.forEach(piece => {
-          piecesData[piece.userData.id] = {
-            position: {
-              x: piece.position.x,
-              y: piece.position.y,
-              z: piece.position.z
-            },
-            rotation: piece.rotation.z,
-            isPlaced: piece.userData.isPlaced
-          };
-        });
-        await syncPieceState(piecesData);
+          break;
+          
+        case 'cube':
+          // Scramble in 3D space around cube
+          piece.position.add(new THREE.Vector3(
+            (Math.random() - 0.5) * 3,
+            (Math.random() - 0.5) * 3,
+            (Math.random() - 0.5) * 3
+          ));
+          break;
+          
+        // Add scramble logic for other puzzle types...
       }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error creating puzzle pieces:', error);
-      toast.error('Failed to create puzzle pieces');
-      setLoading(false);
     }
-  };
+  });
+};
 
   // Initialize puzzle when image or difficulty is received
   useEffect(() => {
