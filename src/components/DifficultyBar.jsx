@@ -24,6 +24,7 @@ const DifficultyBar = ({ selectedDifficulty, onSelect, className }) => {
             {diff.label}
           </button>
         ))}
+        <span></span>
       </div>
     </div>
   );
