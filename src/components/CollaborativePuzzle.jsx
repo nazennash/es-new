@@ -5,7 +5,6 @@ import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2 } from 'lucide-react
 import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
-import { PUZZLE_TYPES, PUZZLE_CONFIG } from '../types/puzzleTypes';
 
 const CollaborativePuzzle = () => {
   const { gameId } = useParams();
@@ -274,32 +273,6 @@ const CollaborativePuzzle = () => {
     );
   }
 
-  // Puzzle type selector component
-  const PuzzleTypeSelector = () => (
-    <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 transform hover:scale-[1.02] transition-all">
-      <h2 className="text-xl font-bold text-white mb-4">Select Puzzle Type</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {Object.entries(PUZZLE_CONFIG).map(([type, config]) => (
-          <button
-            key={type}
-            onClick={() => setSelectedPuzzleType(type)}
-            className={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all
-              ${selectedPuzzleType === type 
-                ? 'bg-blue-500 ring-2 ring-white'
-                : 'bg-white/5 hover:bg-white/10'}`}
-          >
-            <span className="text-3xl">{config.icon}</span>
-            <span className="font-bold text-white">{config.name}</span>
-            <span className="text-sm text-white/70">{config.description}</span>
-            <span className="text-xs text-white/50">
-              {config.minPlayers}-{config.maxPlayers} players
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   // Lobby UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 md:p-8">
@@ -356,9 +329,6 @@ const CollaborativePuzzle = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left column */}
           <div className="space-y-8">
-            {/* Puzzle Type Selector (host only) */}
-            {isHost && <PuzzleTypeSelector />}
-
             {/* Image Upload (host only) */}
             {isHost && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 transform hover:scale-[1.02] transition-all">
