@@ -7,93 +7,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse, ZapIcon } from 'lucide-react';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
-// Add new difficulty menu component
-const DifficultyMenu = ({ current, onChange, isHost }) => (
-  <div className="absolute top-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 w-48 overflow-hidden">
-    <div className="p-3 border-b border-gray-700">
-      <h3 className="text-sm font-semibold text-white">Difficulty</h3>
-    </div>
-    <div className="p-2">
-      {['easy', 'medium', 'hard', 'expert'].map((diff) => (
-        <button
-          key={diff}
-          onClick={() => onChange(diff)}
-          disabled={!isHost}
-          className={`w-full p-2 mb-1 rounded-md flex items-center justify-between ${
-            current === diff 
-              ? 'bg-blue-500/20 text-blue-400' 
-              : 'text-gray-300 hover:bg-gray-700/50'
-          } transition-colors disabled:opacity-50`}
-        >
-          <span className="capitalize">{diff}</span>
-          {current === diff && <Check size={16} />}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-// Add enhanced stats panel component
-const StatsPanel = ({ stats }) => (
-  <div className="absolute top-20 left-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 w-64">
-    <div className="p-3 border-b border-gray-700">
-      <h3 className="text-sm font-semibold text-white">Game Stats</h3>
-    </div>
-    <div className="p-4 space-y-3">
-      <div className="grid grid-cols-2 gap-4">
-        <StatItem 
-          label="Moves" 
-          value={stats.moveCount} 
-          icon={<Mouse className="w-4 h-4 text-blue-400" />} 
-        />
-        <StatItem 
-          label="Accuracy" 
-          value={`${stats.moveCount > 0 
-            ? Math.round((stats.accurateDrops / stats.moveCount) * 100)
-            : 0}%`} 
-          icon={<Check className="w-4 h-4 text-green-400" />} 
-        />
-        <StatItem 
-          label="Points" 
-          value={stats.points} 
-          icon={<Trophy className="w-4 h-4 text-yellow-400" />} 
-        />
-        <StatItem 
-          label="Combo" 
-          value={`${stats.combos}x`} 
-          icon={<ZapIcon className="w-4 h-4 text-purple-400" />} 
-        />
-      </div>
-      {/* Progress bar with percentage */}
-      <div className="mt-2">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>Progress</span>
-          <span>{Math.round((stats.accurateDrops / stats.totalPieces) * 100)}%</span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300"
-            style={{ width: `${(stats.accurateDrops / stats.totalPieces) * 100}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// Add stat item component
-const StatItem = ({ label, value, icon }) => (
-  <div className="bg-gray-700/30 rounded-lg p-2">
-    <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
-      {icon}
-      <span>{label}</span>
-    </div>
-    <div className="text-white font-medium">{value}</div>
-  </div>
-);
 
 // 2. Constants
 const POINTS = {
@@ -551,7 +466,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [showTutorial, setShowTutorial] = useState(true);
   const [lastHoveredPiece, setLastHoveredPiece] = useState(null);
   const [currentSnapGuide, setCurrentSnapGuide] = useState(null);
-  const [puzzleType, setPuzzleType] = useState('classic'); // Add puzzle type state
 
   // Multiplayer hook
   const {
@@ -641,21 +555,17 @@ const celebrateProgress = (progress) => {
 
   // Initialize Three.js scene
   useEffect(() => {
-    if (!containerRef.current || !image) return;
+    if (!containerRef.current) return;
 
     // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
     sceneRef.current = scene;
 
-    // Ensure the container has proper dimensions
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
-
     // Camera setup
     const camera = new THREE.PerspectiveCamera(
       75,
-      width / height,
+      containerRef.current.clientWidth / containerRef.current.clientHeight,
       0.1,
       1000
     );
@@ -667,9 +577,8 @@ const celebrateProgress = (progress) => {
       antialias: true,
       alpha: true
     });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    containerRef.current.innerHTML = ''; // Clear any existing content
+    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -703,9 +612,6 @@ const celebrateProgress = (progress) => {
     // Particle system
     particleSystemRef.current = new ParticleSystem(scene);
 
-    // Create puzzle immediately after scene setup
-    createPuzzlePieces(image);
-
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
@@ -735,16 +641,14 @@ const celebrateProgress = (progress) => {
 
     // Handle window resize
     const handleResize = () => {
-      const newWidth = containerRef.current.clientWidth;
-      const newHeight = containerRef.current.clientHeight;
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
 
-      camera.aspect = newWidth / newHeight;
+      camera.aspect = width / height;
       camera.updateProjectionMatrix();
 
-      renderer.setSize(newWidth, newHeight);
-      if (composerRef.current) {
-        composerRef.current.setSize(newWidth, newHeight);
-      }
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
     };
 
     window.addEventListener('resize', handleResize);
@@ -752,8 +656,9 @@ const celebrateProgress = (progress) => {
     return () => {
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
+      containerRef.current?.removeChild(renderer.domElement);
     };
-  }, [image]);
+  }, []);
 
   // Create placement guides
   const createPlacementGuides = (gridSize, pieceSize) => {
@@ -1577,14 +1482,6 @@ const scramblePieces = (puzzleType) => {
     updateDifficulty(newDifficulty);
   };
 
-  // Handle puzzle type change
-  const handlePuzzleTypeChange = (type) => {
-    setPuzzleType(type);
-    // Reset and recreate puzzle with new type
-    resetGame();
-    createPuzzlePieces(image, type);
-  };
-
   // Handle errors
   if (error) {
     return (
@@ -1609,255 +1506,267 @@ const scramblePieces = (puzzleType) => {
   }, [progress]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
-      {/* Header with glass effect */}
-      <div className="bg-gray-900/80 backdrop-blur-md border-b border-gray-700 p-3 md:p-4 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Stats Panel */}
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-white">
-              <Users className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-medium">{Object.keys(players).length} Players</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-white">
-              <Clock className="w-4 h-4 text-green-400" />
-              <span className="text-sm font-medium">{formatTime(timer)}</span>
-            </div>
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-white">
-              <Trophy className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-medium">{gameStats.points} pts</span>
-            </div>
+    <div className="h-screen flex flex-col bg-gray-900">
+      {/* Header */}
+      <div className="bg-gray-800 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* Player count */}
+          <div className="text-white flex items-center gap-2">
+            <Users size={20} />
+            <span>{Object.keys(players).length} Players</span>
           </div>
 
-          {/* Progress Bar */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-full max-w-md bg-gray-800/50 rounded-full h-2.5 mb-1">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
+          {/* Game stats */}
+          <div className="text-white flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <Clock size={18} />
+              <span>{formatTime(timer)}</span> {/* Use synced timer */}
             </div>
-            <span className="text-xs text-gray-300">Progress: {Math.round(progress)}%</span>
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center md:justify-end gap-2">
-            {isHost && (
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-lg overflow-hidden bg-gray-800/50">
-                  <button
-                    onClick={startTimer}
-                    disabled={isPlaying}
-                    className="p-2 hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
-                  >
-                    <Play className="w-5 h-5 text-blue-400" />
-                  </button>
-                  <button
-                    onClick={pauseTimer}
-                    disabled={!isPlaying}
-                    className="p-2 hover:bg-yellow-500/20 disabled:opacity-50 transition-colors"
-                  >
-                    <Pause className="w-5 h-5 text-yellow-400" />
-                  </button>
-                  <button
-                    onClick={resetGame}
-                    className="p-2 hover:bg-red-500/20 transition-colors"
-                  >
-                    <RotateCcw className="w-5 h-5 text-red-400" />
-                  </button>
-                </div>
+            <div>Moves: {gameStats.moveCount}</div>
+            <div>Accuracy: {gameStats.moveCount > 0 
+              ? Math.round((gameStats.accurateDrops / gameStats.moveCount) * 100)
+              : 0}%</div>
+            <div>Points: {gameStats.points}</div>
+            {gameStats.combos > 1 && (
+              <div className="text-yellow-400">
+                {gameStats.combos}x Combo!
               </div>
             )}
+          </div>
+        </div>
 
-            {/* View Controls */}
-            <div className="flex rounded-lg overflow-hidden bg-gray-800/50">
+        {/* Progress bar */}
+        <div className="flex items-center gap-4">
+          <div className="text-white">Progress: {Math.round(progress)}%</div> {/* Use local progress */}
+          <div className="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-2">
+          {isHost && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowThumbnail(!showThumbnail)}
-                className="p-2 hover:bg-purple-500/20 transition-colors"
-                title="Toggle Reference Image"
+                onClick={startTimer}
+                className="p-2 bg-green-500 text-white rounded hover:bg-green-600"
+                disabled={isPlaying}
               >
-                <Image className="w-5 h-5 text-purple-400" />
+                <Play size={20} />
               </button>
               <button
-                onClick={handleZoomIn}
-                className="p-2 hover:bg-green-500/20 transition-colors"
-                title="Zoom In"
+                onClick={pauseTimer}
+                className="p-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                disabled={!isPlaying}
               >
-                <ZoomIn className="w-5 h-5 text-green-400" />
+                <Pause size={20} />
               </button>
               <button
-                onClick={handleZoomOut}
-                className="p-2 hover:bg-green-500/20 transition-colors"
-                title="Zoom Out"
+                onClick={resetGame} // Change to resetGame
+                className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
               >
-                <ZoomOut className="w-5 h-5 text-green-400" />
+                <RotateCcw size={20} />
+              </button>
+              {/* Difficulty buttons */}
+              <button
+                onClick={() => handleDifficultyChange('easy')}
+                className={`p-2 ${difficulty === 'easy' ? 'bg-blue-500' : 'bg-gray-700'} text-white rounded hover:bg-blue-600`}
+              >
+                Easy
+              </button>
+              <button
+                onClick={() => handleDifficultyChange('medium')}
+                className={`p-2 ${difficulty === 'medium' ? 'bg-blue-500' : 'bg-gray-700'} text-white rounded hover:bg-blue-600`}
+              >
+                Medium
+              </button>
+              <button
+                onClick={() => handleDifficultyChange('hard')}
+                className={`p-2 ${difficulty === 'hard' ? 'bg-blue-500' : 'bg-gray-700'} text-white rounded hover:bg-blue-600`}
+              >
+                Hard
+              </button>
+              <button
+                onClick={() => handleDifficultyChange('expert')}
+                className={`p-2 ${difficulty === 'expert' ? 'bg-blue-500' : 'bg-gray-700'} text-white rounded hover:bg-blue-600`}
+              >
+                Expert
               </button>
             </div>
-          </div>
+          )}
+          <button
+            onClick={() => setShowThumbnail(!showThumbnail)}
+            className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+            title="Toggle Reference Image"
+          >
+            <Image size={20} />
+          </button>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+            title="Zoom In"
+          >
+            <ZoomIn size={20} />
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+            title="Zoom Out"
+          >
+            <ZoomOut size={20} />
+          </button>
+          <button
+            onClick={handleResetView}
+            className="p-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+            title="Reset View"
+          >
+            <Maximize2 size={20} />
+          </button>
         </div>
       </div>
 
-      {/* Game Area */}
+      {/* Game area */}
       <div className="flex-1 relative">
-      {loading && (
+        {loading && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="text-white text-xl">Loading puzzle...</div>
           </div>
         )}
-        <div 
-          ref={containerRef} 
-          className="w-full h-[calc(100vh-64px)]" // Explicit height calculation
-          style={{ touchAction: 'none' }} // Prevent touch scrolling on mobile
-        />
-        
+        <div ref={containerRef} className="w-full h-full" />
 
-        {/* Stats Panel */}
-        <StatsPanel stats={{
-          moveCount: gameStats.moveCount,
-          accurateDrops: gameStats.accurateDrops,
-          points: gameStats.points,
-          combos: gameStats.combos,
-          totalPieces
-        }} />
-
-        {/* Difficulty Menu */}
-        <DifficultyMenu
-          current={difficulty}
-          onChange={handleDifficultyChange}
-          isHost={isHost}
-        />
-
-        {/* Puzzle Type Selection (for host only) */}
-        {isHost && (
-          <div className="absolute bottom-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-            <div className="p-3 border-b border-gray-700">
-              <h3 className="text-sm font-semibold text-white">Puzzle Type</h3>
-            </div>
-            <div className="p-2 space-y-1">
-              {['classic', 'cube', 'sphere', 'pyramid', 'cylinder', 'tower'].map(type => (
-                <button
-                  key={type}
-                  onClick={() => handlePuzzleTypeChange(type)}
-                  className={`w-full p-2 rounded-md text-left capitalize ${
-                    puzzleType === type 
-                      ? 'bg-blue-500/20 text-blue-400' 
-                      : 'text-gray-300 hover:bg-gray-700/50'
-                  } transition-colors`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Reference Image - Improved Animation */}
+        {/* Thumbnail overlay */}
         {showThumbnail && image && (
-          <div className="absolute left-4 top-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 transition-all duration-300 hover:scale-105">
-            <div className="relative group">
-              <img
-                src={image}
-                alt="Reference"
-                className="w-40 md:w-48 h-auto rounded border border-gray-600"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-end justify-center p-2">
-                <span className="text-xs text-white font-medium">Reference Image</span>
-              </div>
-            </div>
+          <div className="absolute left-4 top-4 p-2 bg-gray-800 rounded-lg shadow-lg">
+            <img
+              src={image}
+              alt="Reference"
+              className="w-48 h-auto rounded border border-gray-600"
+            />
           </div>
         )}
 
-        {/* Players Panel - Glass Effect */}
-        <div className="absolute left-4 top-20 w-48 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-          <div className="p-3 border-b border-gray-700">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              Active Players
-            </h3>
-          </div>
-          <div className="p-2 max-h-[calc(100vh-12rem)] overflow-y-auto">
+        {/* Players list */}
+        <div className="absolute left-4 top-16 p-4 bg-gray-800 rounded-lg shadow-lg">
+          <h3 className="text-white font-semibold mb-2">Players</h3>
+          <div className="space-y-2">
             {Object.values(players).map(player => (
-              <div
-                key={player.id}
-                className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-700/50 transition-colors"
-              >
+              <div key={player.id} className="flex items-center gap-2 text-white">
                 <div className={`w-2 h-2 rounded-full ${
-                  player.isOnline ? 'bg-green-400' : 'bg-gray-400'
+                  player.isOnline ? 'bg-green-500' : 'bg-gray-500'
                 }`} />
-                <span className="text-sm text-gray-200 truncate">{player.name}</span>
+                <span>{player.name}</span>
                 {player.isHost && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
-                    Host
-                  </span>
+                  <span className="text-xs text-blue-400">(Host)</span>
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Leaderboard Panel - Glass Effect */}
-        <div className="absolute right-4 top-20 w-64 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-          <div className="p-3 border-b border-gray-700">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-400" />
-              Leaderboard
-            </h3>
-          </div>
-          <div className="p-2">
+        {/* Leaderboard */}
+        <div className="absolute right-4 top-16 p-4 bg-gray-800 rounded-lg shadow-lg">
+          <h3 className="text-white font-semibold flex items-center gap-2 mb-2">
+            <Trophy size={18} className="text-yellow-400" />
+            <span>Leaderboard</span>
+          </h3>
+          <div className="space-y-2">
             {leaderboard.slice(0, 5).map((score, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50 transition-colors"
-              >
+              <div key={index} className="flex items-center justify-between gap-4 text-white">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-yellow-400">#{index + 1}</span>
-                  <span className="text-sm text-gray-200 truncate">{score.userName}</span>
+                  <span className="text-yellow-400">#{index + 1}</span>
+                  <span>{score.userName}</span>
                 </div>
-                <span className="text-sm font-medium text-blue-400">{score.points}</span>
+                <span>{score.points} pts</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Floating Help Button */}
-        <button
-          onClick={() => setShowTutorial(true)}
-          className="absolute bottom-4 right-4 p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-          title="Show Help"
-        >
-          <Info className="w-6 h-6" />
-        </button>
+        {/* Winner announcement */}
+        {winner && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4 text-white">
+              <div className="text-center">
+                <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold mb-4">
+                  🎉 Puzzle Completed! 🎉
+                </h2>
+                <div className="space-y-2 mb-6">
+                  <p className="text-xl font-semibold">{winner.userName}</p>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <p className="text-gray-400">Time</p>
+                      <p className="text-lg">{formatTime(winner.completionTime)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Moves</p>
+                      <p className="text-lg">{winner.moveCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Accuracy</p>
+                      <p className="text-lg">{Math.round(winner.accuracy)}%</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Points</p>
+                      <p className="text-lg text-yellow-400">{winner.points}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Completed Pieces</p>
+                      <p className="text-lg">{completedPieces}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Remaining Pieces</p>
+                      <p className="text-lg">{totalPieces - completedPieces}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-4 justify-center">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Back to Home
+                  </button>
+                  <button
+                    onClick={() => setWinner(null)}
+                    className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  >
+                    View Puzzle
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* Points Animation */}
+        {/* Points popup */}
         {gameStats.combos > 1 && (
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-            <div className="animate-bounce-fade-out text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
-              +{POINTS.COMBO * gameStats.combos}
+            <div className="text-yellow-400 text-4xl font-bold animate-bounce">
+              +{POINTS.COMBO * gameStats.combos} pts
             </div>
           </div>
         )}
       </div>
-
-      {/* Keep existing modals with improved styling */}
-      {showTutorial && <TutorialOverlay onClose={() => setShowTutorial(false)} />}
-      {/* ...existing winner announcement modal... */}
+      
+      {showTutorial && (
+        <TutorialOverlay onClose={() => setShowTutorial(false)} />
+      )}
+      
+      {/* Add help button */}
+      <button
+        onClick={() => setShowTutorial(true)}
+        className="absolute bottom-4 right-4 p-2 bg-gray-700 text-white rounded-full hover:bg-gray-600"
+        title="Show Help"
+      >
+        <Info size={24} />
+      </button>
     </div>
   );
 };
-
-// Add new animation utility class
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes bounce-fade-out {
-    0% { transform: scale(0.5); opacity: 0; }
-    50% { transform: scale(1.2); opacity: 1; }
-    100% { transform: scale(1); opacity: 0; }
-  }
-  .animate-bounce-fade-out {
-    animation: bounce-fade-out 1s ease-out forwards;
-  }
-`;
-document.head.appendChild(style);
 
 // 8. Export
 export default MultiplayerManager;
