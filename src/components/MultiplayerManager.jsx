@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse, ZapIcon } from 'lucide-react';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse, ZapIcon, Menu, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // Add new difficulty menu component
@@ -94,6 +94,56 @@ const StatItem = ({ label, value, icon }) => (
     <div className="text-white font-medium">{value}</div>
   </div>
 );
+
+// Add new mobile menu component
+const MobileMenuButton = ({ icon: Icon, label, onClick, isActive }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-2 p-2 rounded-lg ${
+      isActive ? 'bg-blue-500/20 text-blue-400' : 'text-gray-300'
+    }`}
+  >
+    <Icon className="w-5 h-5" />
+    <span className="text-sm font-medium">{label}</span>
+  </button>
+);
+
+// Add floating panel component
+const FloatingPanel = ({ title, icon: Icon, children, isOpen, onClose, position = "left" }) => {
+  const positionClasses = {
+    left: "left-4",
+    right: "right-4",
+    center: "left-1/2 -translate-x-1/2"
+  };
+
+  return (
+    <div className={`
+      fixed ${positionClasses[position]} top-20 
+      md:absolute md:top-20 
+      bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700
+      transition-all duration-300 ease-in-out
+      ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}
+      z-30
+      w-[90vw] md:w-64
+    `}>
+      <div className="flex items-center justify-between p-3 border-b border-gray-700">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Icon className="w-4 h-4" />
+          {title}
+        </h3>
+        <button
+          onClick={onClose}
+          className="md:hidden p-1 hover:bg-gray-700/50 rounded-lg"
+        >
+          <X className="w-4 h-4 text-gray-400" />
+        </button>
+      </div>
+      <div className="p-2 max-h-[60vh] md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+        {children}
+      </div>
+    </div>
+  );
+};
 
 // 2. Constants
 const POINTS = {
@@ -552,6 +602,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [lastHoveredPiece, setLastHoveredPiece] = useState(null);
   const [currentSnapGuide, setCurrentSnapGuide] = useState(null);
   const [puzzleType, setPuzzleType] = useState('classic'); // Add puzzle type state
+  const [activePanel, setActivePanel] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Multiplayer hook
   const {
@@ -1585,6 +1637,11 @@ const scramblePieces = (puzzleType) => {
     createPuzzlePieces(image, type);
   };
 
+  // Panel toggle handlers
+  const togglePanel = (panelName) => {
+    setActivePanel(activePanel === panelName ? null : panelName);
+  };
+
   // Handle errors
   if (error) {
     return (
@@ -1836,6 +1893,90 @@ const scramblePieces = (puzzleType) => {
             </div>
           </div>
         )}
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="md:hidden fixed bottom-4 left-4 p-3 bg-gray-800/90 text-white rounded-full shadow-lg z-40"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+
+        {/* Mobile Menu */}
+        <div className={`
+          md:hidden fixed inset-x-0 bottom-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 
+          transition-transform duration-300 ease-in-out z-30
+          ${isMobileMenuOpen ? 'translate-y-0' : 'translate-y-full'}
+        `}>
+          <div className="p-4 grid grid-cols-3 gap-2">
+            <MobileMenuButton
+              icon={Users}
+              label="Players"
+              onClick={() => togglePanel('players')}
+              isActive={activePanel === 'players'}
+            />
+            <MobileMenuButton
+              icon={Trophy}
+              label="Leaderboard"
+              onClick={() => togglePanel('leaderboard')}
+              isActive={activePanel === 'leaderboard'}
+            />
+            <MobileMenuButton
+              icon={Info}
+              label="Help"
+              onClick={() => setShowTutorial(true)}
+              isActive={false}
+            />
+          </div>
+        </div>
+
+        {/* Floating Panels */}
+        <FloatingPanel
+          title="Active Players"
+          icon={Users}
+          isOpen={activePanel === 'players' || (!isMobileMenuOpen && window.innerWidth >= 768)}
+          onClose={() => togglePanel('players')}
+          position="left"
+        >
+          {Object.values(players).map(player => (
+            <div
+              key={player.id}
+              className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-700/50"
+            >
+              <div className={`w-2 h-2 rounded-full ${
+                player.isOnline ? 'bg-green-400' : 'bg-gray-400'
+              }`} />
+              <span className="text-sm text-gray-200 truncate">{player.name}</span>
+              {player.isHost && (
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
+                  Host
+                </span>
+              )}
+            </div>
+          ))}
+        </FloatingPanel>
+
+        <FloatingPanel
+          title="Leaderboard"
+          icon={Trophy}
+          isOpen={activePanel === 'leaderboard' || (!isMobileMenuOpen && window.innerWidth >= 768)}
+          onClose={() => togglePanel('leaderboard')}
+          position="right"
+        >
+          {leaderboard.slice(0, 5).map((score, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-yellow-400">#{index + 1}</span>
+                <span className="text-sm text-gray-200 truncate">{score.userName}</span>
+              </div>
+              <span className="text-sm font-medium text-blue-400">{score.points}</span>
+            </div>
+          ))}
+        </FloatingPanel>
+
       </div>
 
       {/* Keep existing modals with improved styling */}
