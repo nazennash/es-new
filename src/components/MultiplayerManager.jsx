@@ -1780,6 +1780,14 @@ const scramblePieces = (puzzleType) => {
               >
                 <ZoomOut className="w-5 h-5 text-green-400" />
               </button>
+
+              <button
+                onClick={handleResetView}
+                className="p-2 hover:bg-green-500/20 transition-colors"
+                title="Reset View"
+              >
+                <Maximize2 className="w-5 h-5 text-green-400" />
+              </button>
             </div>
           </div>
         </div>
@@ -1847,13 +1855,13 @@ const scramblePieces = (puzzleType) => {
         {/* Mobile Menu Bar */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 z-40">
           <div className="grid grid-cols-5 gap-1 p-2">
-            <button
+            {/* <button
               onClick={() => setActiveMobilePanel('stats')}
               className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
             >
               <Trophy className="w-5 h-5" />
               <span className="text-xs mt-1">Stats</span>
-            </button>
+            </button> */}
             <button
               onClick={() => setActiveMobilePanel('players')}
               className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
