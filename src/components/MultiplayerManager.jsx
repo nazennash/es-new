@@ -231,7 +231,7 @@ const TutorialOverlay = ({ onClose }) => (
 
 // 6. Utility Functions
 const highlightPiece = (piece) => {
-  if (piece && !piece.userData.isPlaced) {
+  if (piece && piece.material && piece.material.uniforms && !piece.userData.isPlaced) {
     piece.material.uniforms.selected.value = 0.5;
     // Show "grab" cursor
     document.body.style.cursor = 'grab';
@@ -239,7 +239,7 @@ const highlightPiece = (piece) => {
 };
 
 const unhighlightPiece = (piece) => {
-  if (piece) {
+  if (piece && piece.material && piece.material.uniforms) {
     piece.material.uniforms.selected.value = 0;
     document.body.style.cursor = 'default';
   }
@@ -808,7 +808,27 @@ const createCubePieces = (texture, settings) => {
   return pieces;
 };
 
-// 
+// Add classic piece creation
+const createClassicPieces = (texture, settings) => {
+    const pieces = [];
+    const pieceTypes = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
+    const colors = ['white', 'black'];
+
+    colors.forEach(color => {
+        pieceTypes.forEach(type => {
+            const piece = {
+                type,
+                color,
+                texture: `${texture}/${color}/${type}.png`,
+                settings: { ...settings }
+            };
+            pieces.push(piece);
+        });
+    });
+
+    return pieces;
+};
+
 
 // Add sphere piece creation
 const createSpherePieces = (texture, settings) => {
@@ -1013,49 +1033,75 @@ const createTowerPieces = (texture, settings) => {
 
 // Modify createPuzzlePieces function to use the new piece creators
 const createPuzzlePieces = async (imageUrl) => {
-  // ...existing setup code...
-
-  const puzzleType = gameState?.puzzleType || 'classic';
-  let pieces = [];
+  if (!sceneRef.current) return;
+  
+  // Clear existing pieces
+  puzzlePiecesRef.current.forEach(piece => {
+    if (piece.geometry) piece.geometry.dispose();
+    if (piece.material) piece.material.dispose();
+    if (piece.parent) piece.parent.remove(piece);
+  });
+  puzzlePiecesRef.current = [];
 
   try {
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const settings = DIFFICULTY_SETTINGS[difficulty];
+    
+    const pieceWidth = 1 / settings.grid.x;
+    const pieceHeight = 1 / settings.grid.y;
+    
+    for (let y = 0; y < settings.grid.y; y++) {
+      for (let x = 0; x < settings.grid.x; x++) {
+        const geometry = new THREE.PlaneGeometry(pieceWidth * 0.95, pieceHeight * 0.95);
+        
+        const material = new THREE.ShaderMaterial({
+          uniforms: {
+            map: { value: texture },
+            uvOffset: { value: new THREE.Vector2(x / settings.grid.x, y / settings.grid.y) },
+            uvScale: { value: new THREE.Vector2(1 / settings.grid.x, 1 / settings.grid.y) },
+            selected: { value: 0.0 },
+            correctPosition: { value: 0.0 },
+            time: { value: 0.0 }
+          },
+          vertexShader: puzzlePieceShader.vertexShader,
+          fragmentShader: puzzlePieceShader.fragmentShader,
+          transparent: true
+        });
 
-    switch (puzzleType) {
-      case 'classic':
-        pieces = createClassicPieces(texture, settings);
-        break;
-      case 'cube':
-        pieces = createCubePieces(texture, settings);
-        break;
-      case 'sphere':
-        pieces = createSpherePieces(texture, settings);
-        break;
-      case 'pyramid':
-        pieces = createPyramidPieces(texture, settings);
-        break;
-      case 'cylinder':
-        pieces = createCylinderPieces(texture, settings);
-        break;
-      case 'tower':
-        pieces = createTowerPieces(texture, settings);
-        break;
+        const piece = new THREE.Mesh(geometry, material);
+        
+        // Set initial position
+        const originalX = (x - settings.grid.x / 2 + 0.5) * pieceWidth;
+        const originalY = (y - settings.grid.y / 2 + 0.5) * pieceHeight;
+        piece.position.set(originalX, originalY, 0);
+        
+        // Store original position and metadata
+        piece.userData = {
+          id: `piece_${x}_${y}`,
+          originalPosition: piece.position.clone(),
+          gridPosition: { x, y },
+          isPlaced: false
+        };
+
+        sceneRef.current.add(piece);
+        puzzlePiecesRef.current.push(piece);
+      }
     }
 
-    // Add pieces to scene
-    pieces.forEach(piece => {
-      sceneRef.current.add(piece);
-      puzzlePiecesRef.current.push(piece);
-    });
-
+    // Set total pieces
+    setTotalPieces(settings.grid.x * settings.grid.y);
+    
+    // Create placement guides
+    createPlacementGuides(settings.grid, { x: pieceWidth, y: pieceHeight });
+    
     // Scramble pieces
-    scramblePieces(puzzleType);
-
-    // ...rest of the function
+    scramblePieces('classic');
+    
+    setLoading(false);
   } catch (error) {
     console.error('Error creating puzzle pieces:', error);
     toast.error('Failed to create puzzle pieces');
+    setLoading(false);
   }
 };
 
