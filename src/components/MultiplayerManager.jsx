@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse, ZapIcon, Menu, X } from 'lucide-react';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // Add new difficulty menu component
@@ -140,6 +140,33 @@ const FloatingPanel = ({ title, icon: Icon, children, isOpen, onClose, position 
       </div>
       <div className="p-2 max-h-[60vh] md:max-h-[calc(100vh-12rem)] overflow-y-auto">
         {children}
+      </div>
+    </div>
+  );
+};
+
+// Add new MobilePanel component
+const MobilePanel = ({ isOpen, onClose, title, children, icon: Icon }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden">
+      <div className="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-2xl max-h-[80vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <Icon className="w-5 h-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-700/50 rounded-lg"
+          >
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+        <div className="p-4 overflow-y-auto max-h-[calc(80vh-4rem)]">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -604,6 +631,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [puzzleType, setPuzzleType] = useState('classic'); // Add puzzle type state
   const [activePanel, setActivePanel] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeMobilePanel, setActiveMobilePanel] = useState(null); // Add state for mobile panels
 
   // Multiplayer hook
   const {
@@ -1665,6 +1693,9 @@ const scramblePieces = (puzzleType) => {
     celebrateProgress(progress);
   }, [progress]);
 
+  // Modify the existing floating panels to be hidden on mobile
+  const floatingPanelClasses = "hidden md:block absolute";
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Header with glass effect */}
@@ -1768,118 +1799,211 @@ const scramblePieces = (puzzleType) => {
         />
         
 
-        {/* Stats Panel */}
-        <StatsPanel stats={{
-          moveCount: gameStats.moveCount,
-          accurateDrops: gameStats.accurateDrops,
-          points: gameStats.points,
-          combos: gameStats.combos,
-          totalPieces
-        }} />
+        {/* Modify floating panels to be hidden on mobile */}
+        <div className={`${floatingPanelClasses} left-4 top-20`}>
+          <StatsPanel stats={{
+            moveCount: gameStats.moveCount,
+            accurateDrops: gameStats.accurateDrops,
+            points: gameStats.points,
+            combos: gameStats.combos,
+            totalPieces
+          }} />
+        </div>
 
-        {/* Difficulty Menu */}
-        <DifficultyMenu
-          current={difficulty}
-          onChange={handleDifficultyChange}
-          isHost={isHost}
-        />
+        <div className={`${floatingPanelClasses} right-4 top-20`}>
+          <DifficultyMenu
+            current={difficulty}
+            onChange={handleDifficultyChange}
+            isHost={isHost}
+          />
+        </div>
 
-        {/* Puzzle Type Selection (for host only) */}
         {isHost && (
-          <div className="absolute bottom-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-            <div className="p-3 border-b border-gray-700">
-              <h3 className="text-sm font-semibold text-white">Puzzle Type</h3>
+          <div className={`${floatingPanelClasses} bottom-20 right-4`}>
+            {/* Puzzle Type Selection */}
+            <div className="absolute bottom-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
+              <div className="p-3 border-b border-gray-700">
+                <h3 className="text-sm font-semibold text-white">Puzzle Type</h3>
+              </div>
+              <div className="p-2 space-y-1">
+                {['classic', 'cube', 'sphere', 'pyramid', 'cylinder', 'tower'].map(type => (
+                  <button
+                    key={type}
+                    onClick={() => handlePuzzleTypeChange(type)}
+                    className={`w-full p-2 rounded-md text-left capitalize ${
+                      puzzleType === type 
+                        ? 'bg-blue-500/20 text-blue-400' 
+                        : 'text-gray-300 hover:bg-gray-700/50'
+                    } transition-colors`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-2 space-y-1">
+          </div>
+        )}
+
+        {/* Mobile Menu Bar */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 z-40">
+          <div className="grid grid-cols-5 gap-1 p-2">
+            <button
+              onClick={() => setActiveMobilePanel('stats')}
+              className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
+            >
+              <Trophy className="w-5 h-5" />
+              <span className="text-xs mt-1">Stats</span>
+            </button>
+            <button
+              onClick={() => setActiveMobilePanel('players')}
+              className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-xs mt-1">Players</span>
+            </button>
+            <button
+              onClick={() => setActiveMobilePanel('leaderboard')}
+              className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
+            >
+              <Trophy className="w-5 h-5" />
+              <span className="text-xs mt-1">Leaders</span>
+            </button>
+            <button
+              onClick={() => setActiveMobilePanel('difficulty')}
+              className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-xs mt-1">Difficulty</span>
+            </button>
+            {isHost && (
+              <button
+                onClick={() => setActiveMobilePanel('puzzleType')}
+                className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
+              >
+                <Image className="w-5 h-5" />
+                <span className="text-xs mt-1">Type</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Panels */}
+        <MobilePanel
+          isOpen={activeMobilePanel === 'stats'}
+          onClose={() => setActiveMobilePanel(null)}
+          title="Game Stats"
+          icon={Trophy}
+        >
+          <StatsPanel stats={{
+            moveCount: gameStats.moveCount,
+            accurateDrops: gameStats.accurateDrops,
+            points: gameStats.points,
+            combos: gameStats.combos,
+            totalPieces
+          }} />
+        </MobilePanel>
+
+        <MobilePanel
+          isOpen={activeMobilePanel === 'players'}
+          onClose={() => setActiveMobilePanel(null)}
+          title="Active Players"
+          icon={Users}
+        >
+          {Object.values(players).map(player => (
+            <div key={player.id} className="flex items-center gap-2 p-3 border-b border-gray-700">
+              <div className={`w-2 h-2 rounded-full ${
+                player.isOnline ? 'bg-green-400' : 'bg-gray-400'
+              }`} />
+              <span className="text-white">{player.name}</span>
+              {player.isHost && (
+                <span className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 ml-auto">
+                  Host
+                </span>
+              )}
+            </div>
+          ))}
+        </MobilePanel>
+
+        <MobilePanel
+          isOpen={activeMobilePanel === 'leaderboard'}
+          onClose={() => setActiveMobilePanel(null)}
+          title="Leaderboard"
+          icon={Trophy}
+        >
+          {leaderboard.map((score, index) => (
+            <div key={index} className="flex items-center justify-between p-3 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-yellow-400">#{index + 1}</span>
+                <div>
+                  <div className="text-white">{score.userName}</div>
+                  <div className="text-sm text-gray-400">{score.points} points</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </MobilePanel>
+
+        <MobilePanel
+          isOpen={activeMobilePanel === 'difficulty'}
+          onClose={() => setActiveMobilePanel(null)}
+          title="Difficulty Settings"
+          icon={Settings}
+        >
+          <div className="space-y-2">
+            {['easy', 'medium', 'hard', 'expert'].map((diff) => (
+              <button
+                key={diff}
+                onClick={() => {
+                  handleDifficultyChange(diff);
+                  setActiveMobilePanel(null);
+                }}
+                disabled={!isHost}
+                className={`w-full p-4 rounded-lg flex items-center justify-between ${
+                  difficulty === diff 
+                    ? 'bg-blue-500/20 text-blue-400' 
+                    : 'text-white hover:bg-gray-700/50'
+                } transition-colors disabled:opacity-50`}
+              >
+                <span className="text-lg capitalize">{diff}</span>
+                {difficulty === diff && <Check className="w-6 h-6" />}
+              </button>
+            ))}
+          </div>
+        </MobilePanel>
+
+        {isHost && (
+          <MobilePanel
+            isOpen={activeMobilePanel === 'puzzleType'}
+            onClose={() => setActiveMobilePanel(null)}
+            title="Puzzle Type"
+            icon={Image}
+          >
+            <div className="space-y-2">
               {['classic', 'cube', 'sphere', 'pyramid', 'cylinder', 'tower'].map(type => (
                 <button
                   key={type}
-                  onClick={() => handlePuzzleTypeChange(type)}
-                  className={`w-full p-2 rounded-md text-left capitalize ${
+                  onClick={() => {
+                    handlePuzzleTypeChange(type);
+                    setActiveMobilePanel(null);
+                  }}
+                  className={`w-full p-4 rounded-lg flex items-center justify-between ${
                     puzzleType === type 
                       ? 'bg-blue-500/20 text-blue-400' 
-                      : 'text-gray-300 hover:bg-gray-700/50'
+                      : 'text-white hover:bg-gray-700/50'
                   } transition-colors`}
                 >
-                  {type}
+                  <span className="text-lg capitalize">{type}</span>
+                  {puzzleType === type && <Check className="w-6 h-6" />}
                 </button>
               ))}
             </div>
-          </div>
+          </MobilePanel>
         )}
-
-        {/* Reference Image - Improved Animation */}
-        {showThumbnail && image && (
-          <div className="absolute left-4 top-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 transition-all duration-300 hover:scale-105">
-            <div className="relative group">
-              <img
-                src={image}
-                alt="Reference"
-                className="w-40 md:w-48 h-auto rounded border border-gray-600"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-end justify-center p-2">
-                <span className="text-xs text-white font-medium">Reference Image</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Players Panel - Glass Effect */}
-        <div className="absolute left-4 top-20 w-48 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-          <div className="p-3 border-b border-gray-700">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              Active Players
-            </h3>
-          </div>
-          <div className="p-2 max-h-[calc(100vh-12rem)] overflow-y-auto">
-            {Object.values(players).map(player => (
-              <div
-                key={player.id}
-                className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-700/50 transition-colors"
-              >
-                <div className={`w-2 h-2 rounded-full ${
-                  player.isOnline ? 'bg-green-400' : 'bg-gray-400'
-                }`} />
-                <span className="text-sm text-gray-200 truncate">{player.name}</span>
-                {player.isHost && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
-                    Host
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Leaderboard Panel - Glass Effect */}
-        <div className="absolute right-4 top-20 w-64 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700">
-          <div className="p-3 border-b border-gray-700">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-400" />
-              Leaderboard
-            </h3>
-          </div>
-          <div className="p-2">
-            {leaderboard.slice(0, 5).map((score, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-yellow-400">#{index + 1}</span>
-                  <span className="text-sm text-gray-200 truncate">{score.userName}</span>
-                </div>
-                <span className="text-sm font-medium text-blue-400">{score.points}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Floating Help Button */}
         <button
           onClick={() => setShowTutorial(true)}
-          className="absolute bottom-4 right-4 p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="absolute bottom-12 right-4 p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900"
           title="Show Help"
         >
           <Info className="w-6 h-6" />
@@ -1895,15 +2019,15 @@ const scramblePieces = (puzzleType) => {
         )}
 
         {/* Mobile Menu Button */}
-        <button
+        {/* <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="md:hidden fixed bottom-4 left-4 p-3 bg-gray-800/90 text-white rounded-full shadow-lg z-40"
         >
           <Menu className="w-6 h-6" />
-        </button>
+        </button> */}
 
         {/* Mobile Menu */}
-        <div className={`
+        {/* <div className={`
           md:hidden fixed inset-x-0 bottom-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 
           transition-transform duration-300 ease-in-out z-30
           ${isMobileMenuOpen ? 'translate-y-0' : 'translate-y-full'}
@@ -1928,7 +2052,7 @@ const scramblePieces = (puzzleType) => {
               isActive={false}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Floating Panels */}
         <FloatingPanel
