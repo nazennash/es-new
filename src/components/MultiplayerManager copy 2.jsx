@@ -1,4 +1,3 @@
-// 1. Imports
 import React, { useState, useEffect, useRef } from 'react';
 import { useMultiplayerGame } from '../hooks/useMultiplayerGame';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Trophy, Users, Mouse } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// 2. Constants
+// Define point values for actions
 const POINTS = {
   ACCURATE_PLACEMENT: 100,
   QUICK_PLACEMENT: 50, // Under 5 seconds
@@ -18,40 +17,7 @@ const POINTS = {
   COMPLETION_BONUS: 1000
 };
 
-const DIFFICULTY_SETTINGS = {
-  easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
-  hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
-  expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
-};
-
-const CAMERA_PRESETS = {
-  // ...existing presets...
-  
-  sphere: {
-    position: new THREE.Vector3(0, 0, 4),
-    target: new THREE.Vector3(0, 0, 0),
-    controls: {
-      maxDistance: 6,
-      minDistance: 2,
-      enablePan: false,
-      maxPolarAngle: Math.PI * 0.85,
-      minPolarAngle: Math.PI * 0.15
-    }
-  },
-  
-  pyramid: {
-    position: new THREE.Vector3(2, 2, 2),
-    target: new THREE.Vector3(0, 0, 0),
-    controls: {
-      maxDistance: 6,
-      minDistance: 2,
-      maxPolarAngle: Math.PI * 0.75
-    }
-  }
-};
-
-// 3. Shaders
+// Shader for piece highlighting and effects
 const puzzlePieceShader = {
   vertexShader: `
     varying vec2 vUv;
@@ -94,7 +60,7 @@ const puzzlePieceShader = {
   `
 };
 
-// 4. Helper Classes
+// Enhanced particle system
 class ParticleSystem {
   constructor(scene) {
     this.particles = [];
@@ -204,7 +170,14 @@ class ParticleSystem {
   }
 }
 
-// 5. Component Functions
+const DIFFICULTY_SETTINGS = {
+  easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
+  medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
+  hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
+  expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
+};
+
+// Add visual tutorial overlay for new players
 const TutorialOverlay = ({ onClose }) => (
   <div className="absolute inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center">
     <div className="bg-gray-800 p-6 rounded-lg max-w-lg text-white">
@@ -229,9 +202,9 @@ const TutorialOverlay = ({ onClose }) => (
   </div>
 );
 
-// 6. Utility Functions
+// Add piece highlighting on hover
 const highlightPiece = (piece) => {
-  if (piece && piece.material && piece.material.uniforms && !piece.userData.isPlaced) {
+  if (piece && !piece.userData.isPlaced) {
     piece.material.uniforms.selected.value = 0.5;
     // Show "grab" cursor
     document.body.style.cursor = 'grab';
@@ -239,12 +212,13 @@ const highlightPiece = (piece) => {
 };
 
 const unhighlightPiece = (piece) => {
-  if (piece && piece.material && piece.material.uniforms) {
+  if (piece) {
     piece.material.uniforms.selected.value = 0;
     document.body.style.cursor = 'default';
   }
 };
 
+// Add visual snap guides
 const showSnapGuide = (piece, nearestGuide) => {
   if (nearestGuide) {
     const snapLine = new THREE.Line(
@@ -266,6 +240,7 @@ const showSnapGuide = (piece, nearestGuide) => {
   return null;
 };
 
+// Add piece placement feedback
 const showPlacementFeedback = (isCorrect, position) => {
   // Visual feedback
   const color = isCorrect ? new THREE.Color(0x00ff00) : new THREE.Color(0xff0000);
@@ -284,149 +259,6 @@ const showPlacementFeedback = (isCorrect, position) => {
   }
 };
 
-const checkSphereSnap = (piece, snapDistance) => {
-  const originalPos = piece.userData.originalPosition;
-  const radius = 1;
-  
-  // Check if piece is at correct radius
-  const currentRadius = piece.position.length();
-  const radiusDiff = Math.abs(currentRadius - radius);
-  
-  // Check angular position
-  const currentTheta = Math.atan2(piece.position.y, piece.position.x);
-  const originalTheta = Math.atan2(originalPos.y, originalPos.x);
-  const thetaDiff = Math.abs(currentTheta - originalTheta) % (Math.PI * 2);
-  
-  return radiusDiff < snapDistance && thetaDiff < snapDistance;
-};
-
-const checkPyramidSnap = (piece, snapDistance) => {
-  const originalPos = piece.userData.originalPosition;
-  const originalRot = piece.userData.originalRotation;
-  const faceIndex = piece.userData.faceIndex;
-  
-  // Check position on face
-  const positionDistance = piece.position.distanceTo(originalPos);
-  
-  // Check rotation alignment with face
-  const normal = new THREE.Vector3(0, 1, 0).applyEuler(originalRot);
-  const currentNormal = new THREE.Vector3(0, 1, 0).applyEuler(piece.rotation);
-  const normalDiff = normal.angleTo(currentNormal);
-  
-  return positionDistance < snapDistance && normalDiff < 0.1;
-};
-
-const checkCylinderSnap = (piece, snapDistance) => {
-  const originalPos = piece.userData.originalPosition;
-  const height = piece.position.y - originalPos.y;
-  
-  // Check radial position
-  const radius = 0.5;
-  const currentRadius = new THREE.Vector2(piece.position.x, piece.position.z).length();
-  const radiusDiff = Math.abs(currentRadius - radius);
-  
-  // Check angular position
-  const angle = Math.atan2(piece.position.z, piece.position.x);
-  const originalAngle = Math.atan2(originalPos.z, originalPos.x);
-  const angleDiff = Math.abs(angle - originalAngle) % (Math.PI * 2);
-  
-  return Math.abs(height) < snapDistance && 
-         radiusDiff < snapDistance && 
-         angleDiff < snapDistance;
-};
-
-const checkTowerSnap = (piece, snapDistance) => {
-  const originalPos = piece.userData.originalPosition;
-  const heightDiff = Math.abs(piece.position.y - originalPos.y);
-  const horizontalDist = new THREE.Vector2(
-    piece.position.x - originalPos.x,
-    piece.position.z - originalPos.z
-  ).length();
-  
-  // Check rotation in 90-degree increments
-  const rotationDiff = Math.abs(piece.rotation.y % (Math.PI / 2));
-  
-  return heightDiff < snapDistance && 
-         horizontalDist < snapDistance &&
-         rotationDiff < 0.1;
-};
-
-const constrainPieceMovement = (piece, point, puzzleType) => {
-  switch (puzzleType) {
-    case 'classic':
-      // Already implemented
-      break;
-      
-    case 'cube':
-      constrainToCubeFace(piece, point);
-      break;
-      
-    case 'sphere':
-      constrainToSphereSurface(piece, point);
-      break;
-      
-    case 'pyramid':
-      constrainToPyramidFace(piece, point);
-      break;
-      
-    case 'cylinder':
-      constrainToCylinderSurface(piece, point);
-      break;
-      
-    case 'tower':
-      constrainToTowerLevel(piece, point);
-      break;
-  }
-};
-
-const checkPuzzleCompletion = (puzzleType) => {
-  switch (puzzleType) {
-    case 'classic':
-      return puzzlePiecesRef.current.every(piece => piece.userData.isPlaced);
-      
-    case 'cube':
-      return puzzlePiecesRef.current.every(piece => 
-        piece.userData.isPlaced && 
-        checkCubeSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-      );
-      
-    case 'sphere':
-      return puzzlePiecesRef.current.every(piece => 
-        piece.userData.isPlaced && 
-        checkSphereSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-      );
-      
-    case 'pyramid':
-      return puzzlePiecesRef.current.every(piece => 
-        piece.userData.isPlaced && 
-        checkPyramidSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-      );
-      
-    case 'cylinder':
-      return puzzlePiecesRef.current.every(piece => 
-        piece.userData.isPlaced && 
-        checkCylinderSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-      );
-      
-    case 'tower':
-      return puzzlePiecesRef.current.every(piece => 
-        piece.userData.isPlaced && 
-        checkTowerSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-      );
-  }
-};
-
-const safeThreeOperation = (operation, fallback = null) => {
-  try {
-    return operation();
-  } catch (error) {
-    console.error('Three.js operation failed:', error);
-    toast.error('An error occurred in the 3D rendering');
-    return fallback;
-  }
-};
-
-// 7. Main Component
 const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const navigate = useNavigate();
   
@@ -808,28 +640,6 @@ const createCubePieces = (texture, settings) => {
   return pieces;
 };
 
-// Add classic piece creation
-const createClassicPieces = (texture, settings) => {
-    const pieces = [];
-    const pieceTypes = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
-    const colors = ['white', 'black'];
-
-    colors.forEach(color => {
-        pieceTypes.forEach(type => {
-            const piece = {
-                type,
-                color,
-                texture: `${texture}/${color}/${type}.png`,
-                settings: { ...settings }
-            };
-            pieces.push(piece);
-        });
-    });
-
-    return pieces;
-};
-
-
 // Add sphere piece creation
 const createSpherePieces = (texture, settings) => {
   const pieces = [];
@@ -1033,75 +843,49 @@ const createTowerPieces = (texture, settings) => {
 
 // Modify createPuzzlePieces function to use the new piece creators
 const createPuzzlePieces = async (imageUrl) => {
-  if (!sceneRef.current) return;
-  
-  // Clear existing pieces
-  puzzlePiecesRef.current.forEach(piece => {
-    if (piece.geometry) piece.geometry.dispose();
-    if (piece.material) piece.material.dispose();
-    if (piece.parent) piece.parent.remove(piece);
-  });
-  puzzlePiecesRef.current = [];
+  // ...existing setup code...
+
+  const puzzleType = gameState?.puzzleType || 'classic';
+  let pieces = [];
 
   try {
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const settings = DIFFICULTY_SETTINGS[difficulty];
-    
-    const pieceWidth = 1 / settings.grid.x;
-    const pieceHeight = 1 / settings.grid.y;
-    
-    for (let y = 0; y < settings.grid.y; y++) {
-      for (let x = 0; x < settings.grid.x; x++) {
-        const geometry = new THREE.PlaneGeometry(pieceWidth * 0.95, pieceHeight * 0.95);
-        
-        const material = new THREE.ShaderMaterial({
-          uniforms: {
-            map: { value: texture },
-            uvOffset: { value: new THREE.Vector2(x / settings.grid.x, y / settings.grid.y) },
-            uvScale: { value: new THREE.Vector2(1 / settings.grid.x, 1 / settings.grid.y) },
-            selected: { value: 0.0 },
-            correctPosition: { value: 0.0 },
-            time: { value: 0.0 }
-          },
-          vertexShader: puzzlePieceShader.vertexShader,
-          fragmentShader: puzzlePieceShader.fragmentShader,
-          transparent: true
-        });
 
-        const piece = new THREE.Mesh(geometry, material);
-        
-        // Set initial position
-        const originalX = (x - settings.grid.x / 2 + 0.5) * pieceWidth;
-        const originalY = (y - settings.grid.y / 2 + 0.5) * pieceHeight;
-        piece.position.set(originalX, originalY, 0);
-        
-        // Store original position and metadata
-        piece.userData = {
-          id: `piece_${x}_${y}`,
-          originalPosition: piece.position.clone(),
-          gridPosition: { x, y },
-          isPlaced: false
-        };
-
-        sceneRef.current.add(piece);
-        puzzlePiecesRef.current.push(piece);
-      }
+    switch (puzzleType) {
+      case 'classic':
+        pieces = createClassicPieces(texture, settings);
+        break;
+      case 'cube':
+        pieces = createCubePieces(texture, settings);
+        break;
+      case 'sphere':
+        pieces = createSpherePieces(texture, settings);
+        break;
+      case 'pyramid':
+        pieces = createPyramidPieces(texture, settings);
+        break;
+      case 'cylinder':
+        pieces = createCylinderPieces(texture, settings);
+        break;
+      case 'tower':
+        pieces = createTowerPieces(texture, settings);
+        break;
     }
 
-    // Set total pieces
-    setTotalPieces(settings.grid.x * settings.grid.y);
-    
-    // Create placement guides
-    createPlacementGuides(settings.grid, { x: pieceWidth, y: pieceHeight });
-    
+    // Add pieces to scene
+    pieces.forEach(piece => {
+      sceneRef.current.add(piece);
+      puzzlePiecesRef.current.push(piece);
+    });
+
     // Scramble pieces
-    scramblePieces('classic');
-    
-    setLoading(false);
+    scramblePieces(puzzleType);
+
+    // ...rest of the function
   } catch (error) {
     console.error('Error creating puzzle pieces:', error);
     toast.error('Failed to create puzzle pieces');
-    setLoading(false);
   }
 };
 
@@ -1768,240 +1552,239 @@ const scramblePieces = (puzzleType) => {
   );
 };
 
-// 8. Export
 export default MultiplayerManager;
 
 // Add remaining snap checking functions
-// const checkSphereSnap = (piece, snapDistance) => {
-//   const originalPos = piece.userData.originalPosition;
-//   const radius = 1;
+const checkSphereSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const radius = 1;
   
-//   // Check if piece is at correct radius
-//   const currentRadius = piece.position.length();
-//   const radiusDiff = Math.abs(currentRadius - radius);
+  // Check if piece is at correct radius
+  const currentRadius = piece.position.length();
+  const radiusDiff = Math.abs(currentRadius - radius);
   
-//   // Check angular position
-//   const currentTheta = Math.atan2(piece.position.y, piece.position.x);
-//   const originalTheta = Math.atan2(originalPos.y, originalPos.x);
-//   const thetaDiff = Math.abs(currentTheta - originalTheta) % (Math.PI * 2);
+  // Check angular position
+  const currentTheta = Math.atan2(piece.position.y, piece.position.x);
+  const originalTheta = Math.atan2(originalPos.y, originalPos.x);
+  const thetaDiff = Math.abs(currentTheta - originalTheta) % (Math.PI * 2);
   
-//   return radiusDiff < snapDistance && thetaDiff < snapDistance;
-// };
+  return radiusDiff < snapDistance && thetaDiff < snapDistance;
+};
 
-// const checkPyramidSnap = (piece, snapDistance) => {
-//   const originalPos = piece.userData.originalPosition;
-//   const originalRot = piece.userData.originalRotation;
-//   const faceIndex = piece.userData.faceIndex;
+const checkPyramidSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const originalRot = piece.userData.originalRotation;
+  const faceIndex = piece.userData.faceIndex;
   
-//   // Check position on face
-//   const positionDistance = piece.position.distanceTo(originalPos);
+  // Check position on face
+  const positionDistance = piece.position.distanceTo(originalPos);
   
-//   // Check rotation alignment with face
-//   const normal = new THREE.Vector3(0, 1, 0).applyEuler(originalRot);
-//   const currentNormal = new THREE.Vector3(0, 1, 0).applyEuler(piece.rotation);
-//   const normalDiff = normal.angleTo(currentNormal);
+  // Check rotation alignment with face
+  const normal = new THREE.Vector3(0, 1, 0).applyEuler(originalRot);
+  const currentNormal = new THREE.Vector3(0, 1, 0).applyEuler(piece.rotation);
+  const normalDiff = normal.angleTo(currentNormal);
   
-//   return positionDistance < snapDistance && normalDiff < 0.1;
-// };
+  return positionDistance < snapDistance && normalDiff < 0.1;
+};
 
-// const checkCylinderSnap = (piece, snapDistance) => {
-//   const originalPos = piece.userData.originalPosition;
-//   const height = piece.position.y - originalPos.y;
+const checkCylinderSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const height = piece.position.y - originalPos.y;
   
-//   // Check radial position
-//   const radius = 0.5;
-//   const currentRadius = new THREE.Vector2(piece.position.x, piece.position.z).length();
-//   const radiusDiff = Math.abs(currentRadius - radius);
+  // Check radial position
+  const radius = 0.5;
+  const currentRadius = new THREE.Vector2(piece.position.x, piece.position.z).length();
+  const radiusDiff = Math.abs(currentRadius - radius);
   
-//   // Check angular position
-//   const angle = Math.atan2(piece.position.z, piece.position.x);
-//   const originalAngle = Math.atan2(originalPos.z, originalPos.x);
-//   const angleDiff = Math.abs(angle - originalAngle) % (Math.PI * 2);
+  // Check angular position
+  const angle = Math.atan2(piece.position.z, piece.position.x);
+  const originalAngle = Math.atan2(originalPos.z, originalPos.x);
+  const angleDiff = Math.abs(angle - originalAngle) % (Math.PI * 2);
   
-//   return Math.abs(height) < snapDistance && 
-//          radiusDiff < snapDistance && 
-//          angleDiff < snapDistance;
-// };
+  return Math.abs(height) < snapDistance && 
+         radiusDiff < snapDistance && 
+         angleDiff < snapDistance;
+};
 
-// const checkTowerSnap = (piece, snapDistance) => {
-//   const originalPos = piece.userData.originalPosition;
-//   const heightDiff = Math.abs(piece.position.y - originalPos.y);
-//   const horizontalDist = new THREE.Vector2(
-//     piece.position.x - originalPos.x,
-//     piece.position.z - originalPos.z
-//   ).length();
+const checkTowerSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const heightDiff = Math.abs(piece.position.y - originalPos.y);
+  const horizontalDist = new THREE.Vector2(
+    piece.position.x - originalPos.x,
+    piece.position.z - originalPos.z
+  ).length();
   
-//   // Check rotation in 90-degree increments
-//   const rotationDiff = Math.abs(piece.rotation.y % (Math.PI / 2));
+  // Check rotation in 90-degree increments
+  const rotationDiff = Math.abs(piece.rotation.y % (Math.PI / 2));
   
-//   return heightDiff < snapDistance && 
-//          horizontalDist < snapDistance &&
-//          rotationDiff < 0.1;
-// };
+  return heightDiff < snapDistance && 
+         horizontalDist < snapDistance &&
+         rotationDiff < 0.1;
+};
 
-// // Add missing constraint functions for piece movement
-// const constrainPieceMovement = (piece, point, puzzleType) => {
-//   switch (puzzleType) {
-//     case 'classic':
-//       // Already implemented
-//       break;
+// Add missing constraint functions for piece movement
+const constrainPieceMovement = (piece, point, puzzleType) => {
+  switch (puzzleType) {
+    case 'classic':
+      // Already implemented
+      break;
       
-//     case 'cube':
-//       constrainToCubeFace(piece, point);
-//       break;
+    case 'cube':
+      constrainToCubeFace(piece, point);
+      break;
       
-//     case 'sphere':
-//       constrainToSphereSurface(piece, point);
-//       break;
+    case 'sphere':
+      constrainToSphereSurface(piece, point);
+      break;
       
-//     case 'pyramid':
-//       constrainToPyramidFace(piece, point);
-//       break;
+    case 'pyramid':
+      constrainToPyramidFace(piece, point);
+      break;
       
-//     case 'cylinder':
-//       constrainToCylinderSurface(piece, point);
-//       break;
+    case 'cylinder':
+      constrainToCylinderSurface(piece, point);
+      break;
       
-//     case 'tower':
-//       constrainToTowerLevel(piece, point);
-//       break;
-//   }
-// };
+    case 'tower':
+      constrainToTowerLevel(piece, point);
+      break;
+  }
+};
 
-// // Add puzzle-specific completion checks
-// const checkPuzzleCompletion = (puzzleType) => {
-//   switch (puzzleType) {
-//     case 'classic':
-//       return puzzlePiecesRef.current.every(piece => piece.userData.isPlaced);
+// Add puzzle-specific completion checks
+const checkPuzzleCompletion = (puzzleType) => {
+  switch (puzzleType) {
+    case 'classic':
+      return puzzlePiecesRef.current.every(piece => piece.userData.isPlaced);
       
-//     case 'cube':
-//       return puzzlePiecesRef.current.every(piece => 
-//         piece.userData.isPlaced && 
-//         checkCubeSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-//       );
+    case 'cube':
+      return puzzlePiecesRef.current.every(piece => 
+        piece.userData.isPlaced && 
+        checkCubeSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
+      );
       
-//     case 'sphere':
-//       return puzzlePiecesRef.current.every(piece => 
-//         piece.userData.isPlaced && 
-//         checkSphereSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-//       );
+    case 'sphere':
+      return puzzlePiecesRef.current.every(piece => 
+        piece.userData.isPlaced && 
+        checkSphereSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
+      );
       
-//     case 'pyramid':
-//       return puzzlePiecesRef.current.every(piece => 
-//         piece.userData.isPlaced && 
-//         checkPyramidSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-//       );
+    case 'pyramid':
+      return puzzlePiecesRef.current.every(piece => 
+        piece.userData.isPlaced && 
+        checkPyramidSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
+      );
       
-//     case 'cylinder':
-//       return puzzlePiecesRef.current.every(piece => 
-//         piece.userData.isPlaced && 
-//         checkCylinderSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-//       );
+    case 'cylinder':
+      return puzzlePiecesRef.current.every(piece => 
+        piece.userData.isPlaced && 
+        checkCylinderSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
+      );
       
-//     case 'tower':
-//       return puzzlePiecesRef.current.every(piece => 
-//         piece.userData.isPlaced && 
-//         checkTowerSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
-//       );
-//   }
-// };
+    case 'tower':
+      return puzzlePiecesRef.current.every(piece => 
+        piece.userData.isPlaced && 
+        checkTowerSnap(piece, DIFFICULTY_SETTINGS[difficulty].snapDistance)
+      );
+  }
+};
 
-// // Add error boundaries for Three.js operations
-// const safeThreeOperation = (operation, fallback = null) => {
-//   try {
-//     return operation();
-//   } catch (error) {
-//     console.error('Three.js operation failed:', error);
-//     toast.error('An error occurred in the 3D rendering');
-//     return fallback;
-//   }
-// };
+// Add error boundaries for Three.js operations
+const safeThreeOperation = (operation, fallback = null) => {
+  try {
+    return operation();
+  } catch (error) {
+    console.error('Three.js operation failed:', error);
+    toast.error('An error occurred in the 3D rendering');
+    return fallback;
+  }
+};
 
-// // Add cleanup function for puzzle pieces
-// const cleanupPuzzlePieces = () => {
-//   puzzlePiecesRef.current.forEach(piece => {
-//     if (piece.geometry) piece.geometry.dispose();
-//     if (piece.material) piece.material.dispose();
-//     if (piece.texture) piece.texture.dispose();
-//     if (piece.parent) piece.parent.remove(piece);
-//   });
-//   puzzlePiecesRef.current = [];
-// };
+// Add cleanup function for puzzle pieces
+const cleanupPuzzlePieces = () => {
+  puzzlePiecesRef.current.forEach(piece => {
+    if (piece.geometry) piece.geometry.dispose();
+    if (piece.material) piece.material.dispose();
+    if (piece.texture) piece.texture.dispose();
+    if (piece.parent) piece.parent.remove(piece);
+  });
+  puzzlePiecesRef.current = [];
+};
 
-// // Add puzzle type specific camera presets
-// const CAMERA_PRESETS = {
-//   // ...existing presets...
+// Add puzzle type specific camera presets
+const CAMERA_PRESETS = {
+  // ...existing presets...
   
-//   sphere: {
-//     position: new THREE.Vector3(0, 0, 4),
-//     target: new THREE.Vector3(0, 0, 0),
-//     controls: {
-//       maxDistance: 6,
-//       minDistance: 2,
-//       enablePan: false,
-//       maxPolarAngle: Math.PI * 0.85,
-//       minPolarAngle: Math.PI * 0.15
-//     }
-//   },
+  sphere: {
+    position: new THREE.Vector3(0, 0, 4),
+    target: new THREE.Vector3(0, 0, 0),
+    controls: {
+      maxDistance: 6,
+      minDistance: 2,
+      enablePan: false,
+      maxPolarAngle: Math.PI * 0.85,
+      minPolarAngle: Math.PI * 0.15
+    }
+  },
   
-//   pyramid: {
-//     position: new THREE.Vector3(2, 2, 2),
-//     target: new THREE.Vector3(0, 0, 0),
-//     controls: {
-//       maxDistance: 6,
-//       minDistance: 2,
-//       maxPolarAngle: Math.PI * 0.75
-//     }
-//   }
-// };
+  pyramid: {
+    position: new THREE.Vector3(2, 2, 2),
+    target: new THREE.Vector3(0, 0, 0),
+    controls: {
+      maxDistance: 6,
+      minDistance: 2,
+      maxPolarAngle: Math.PI * 0.75
+    }
+  }
+};
 
-// // Add puzzle-specific guide creation
-// const createGuides = (puzzleType) => {
-//   // Clear existing guides
-//   guideOutlinesRef.current.forEach(guide => {
-//     if (guide.parent) guide.parent.remove(guide);
-//     if (guide.geometry) guide.geometry.dispose();
-//     if (guide.material) guide.material.dispose();
-//   });
-//   guideOutlinesRef.current = [];
+// Add puzzle-specific guide creation
+const createGuides = (puzzleType) => {
+  // Clear existing guides
+  guideOutlinesRef.current.forEach(guide => {
+    if (guide.parent) guide.parent.remove(guide);
+    if (guide.geometry) guide.geometry.dispose();
+    if (guide.material) guide.material.dispose();
+  });
+  guideOutlinesRef.current = [];
 
-//   // Create new guides based on puzzle type
-//   safeThreeOperation(() => {
-//     switch (puzzleType) {
-//       case 'classic':
-//         createClassicGuides();
-//         break;
-//       case 'cube':
-//         createCubeGuides();
-//         break;
-//       case 'sphere':
-//         createSphereGuides();
-//         break;
-//       case 'pyramid':
-//         createPyramidGuides();
-//         break;
-//       case 'cylinder':
-//         createCylinderGuides();
-//         break;
-//       case 'tower':
-//         createTowerGuides();
-//         break;
-//     }
-//   });
-// };
+  // Create new guides based on puzzle type
+  safeThreeOperation(() => {
+    switch (puzzleType) {
+      case 'classic':
+        createClassicGuides();
+        break;
+      case 'cube':
+        createCubeGuides();
+        break;
+      case 'sphere':
+        createSphereGuides();
+        break;
+      case 'pyramid':
+        createPyramidGuides();
+        break;
+      case 'cylinder':
+        createCylinderGuides();
+        break;
+      case 'tower':
+        createTowerGuides();
+        break;
+    }
+  });
+};
 
-// // Add cleanup on component unmount
-// useEffect(() => {
-//   return () => {
-//     // Cleanup Three.js resources
-//     cleanupPuzzlePieces();
-//     if (rendererRef.current) rendererRef.current.dispose();
-//     if (composerRef.current) composerRef.current.dispose();
+// Add cleanup on component unmount
+useEffect(() => {
+  return () => {
+    // Cleanup Three.js resources
+    cleanupPuzzlePieces();
+    if (rendererRef.current) rendererRef.current.dispose();
+    if (composerRef.current) composerRef.current.dispose();
     
-//     // Cleanup event listeners
-//     window.removeEventListener('resize', handleResize);
+    // Cleanup event listeners
+    window.removeEventListener('resize', handleResize);
     
-//     // Clear any running animations
-//     if (timerRef.current) clearInterval(timerRef.current);
-//   };
-// }, []);
+    // Clear any running animations
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+}, []);

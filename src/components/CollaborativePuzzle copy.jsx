@@ -5,7 +5,6 @@ import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2 } from 'lucide-react
 import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
-import { PUZZLE_TYPES, PUZZLE_CONFIG } from '../types/puzzleTypes';
 
 const CollaborativePuzzle = () => {
   const { gameId } = useParams();
@@ -17,11 +16,7 @@ const CollaborativePuzzle = () => {
   const [image, setImage] = useState(null);
   const [inviteLink, setInviteLink] = useState('');
   const [showThumbnail, setShowThumbnail] = useState(false);
-<<<<<<< HEAD
-  const [selectedPuzzleType, setSelectedPuzzleType] = useState(PUZZLE_TYPES.JIGSAW);
-=======
   const [puzzleType, setPuzzleType] = useState('classic');
->>>>>>> 4d70be8
   
   // Get current user data
   const userData = JSON.parse(localStorage.getItem('authUser'));
@@ -69,11 +64,7 @@ const CollaborativePuzzle = () => {
             createdAt: Date.now(),
             hostId: userId,
             status: 'waiting',
-<<<<<<< HEAD
-            puzzleType: selectedPuzzleType,
-=======
             puzzleType: puzzleType, // Add puzzle type
->>>>>>> 4d70be8
             players: {
               [userId]: {
                 id: userId,
@@ -131,45 +122,18 @@ const CollaborativePuzzle = () => {
         remove(ref(database, `games/${actualGameId}/players/${userId}`));
       }
     };
-<<<<<<< HEAD
-  }, [actualGameId, userId, isHost, userName, selectedPuzzleType]);
-=======
   }, [actualGameId, userId, isHost, userName, puzzleType]);
-
-  // Add puzzle type listener
-  useEffect(() => {
-    if (!actualGameId) return;
-    
-    const puzzleTypeRef = ref(database, `games/${actualGameId}/puzzleType`);
-    const puzzleTypeListener = onValue(puzzleTypeRef, (snapshot) => {
-      const type = snapshot.val();
-      if (type) setPuzzleType(type);
-    });
-    
-    return () => puzzleTypeListener();
-  }, [actualGameId]);
->>>>>>> 4d70be8
 
   // Handle image upload (host only)
   const handleImageUpload = async (event) => {
     if (!isHost || !event.target.files[0]) return;
 
     const file = event.target.files[0];
-    const maxSize = 5 * 1024 * 1024; // 5MB limit
-
-    if (file.size > maxSize) {
-      toast.error('Image size must be less than 5MB');
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onerror = () => {
-      toast.error('Failed to read image file');
-    };
 
     reader.onload = async (e) => {
+      const imageData = e.target.result;
       try {
-        const imageData = e.target.result;
         await update(ref(database, `games/${actualGameId}`), {
           image: imageData,
           uploadedAt: Date.now()
@@ -183,23 +147,6 @@ const CollaborativePuzzle = () => {
     };
 
     reader.readAsDataURL(file);
-  };
-
-  // Add puzzle type synchronization
-  const updatePuzzleType = async (newType) => {
-    if (!isHost) return;
-    
-    try {
-      await update(ref(database, `games/${actualGameId}`), {
-        puzzleType: newType,
-        lastUpdated: Date.now()
-      });
-      setPuzzleType(newType);
-      toast.success(`Puzzle type changed to ${newType}`);
-    } catch (error) {
-      console.error('Failed to update puzzle type:', error);
-      toast.error('Failed to change puzzle type');
-    }
   };
 
   // Start game (host only)
@@ -286,32 +233,6 @@ const CollaborativePuzzle = () => {
     );
   }
 
-  // Puzzle type selector component
-  const PuzzleTypeSelector = () => (
-    <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 transform hover:scale-[1.02] transition-all">
-      <h2 className="text-xl font-bold text-white mb-4">Select Puzzle Type</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {Object.entries(PUZZLE_CONFIG).map(([type, config]) => (
-          <button
-            key={type}
-            onClick={() => setSelectedPuzzleType(type)}
-            className={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all
-              ${selectedPuzzleType === type 
-                ? 'bg-blue-500 ring-2 ring-white'
-                : 'bg-white/5 hover:bg-white/10'}`}
-          >
-            <span className="text-3xl">{config.icon}</span>
-            <span className="font-bold text-white">{config.name}</span>
-            <span className="text-sm text-white/70">{config.description}</span>
-            <span className="text-xs text-white/50">
-              {config.minPlayers}-{config.maxPlayers} players
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
   // Lobby UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 md:p-8">
@@ -347,7 +268,7 @@ const CollaborativePuzzle = () => {
                   ].map(type => (
                     <button
                       key={type.id}
-                      onClick={() => updatePuzzleType(type.id)}
+                      onClick={() => setPuzzleType(type.id)}
                       className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
                         puzzleType === type.id
                           ? 'bg-blue-500 text-white'
@@ -368,9 +289,6 @@ const CollaborativePuzzle = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left column */}
           <div className="space-y-8">
-            {/* Puzzle Type Selector (host only) */}
-            {isHost && <PuzzleTypeSelector />}
-
             {/* Image Upload (host only) */}
             {isHost && (
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-6 transform hover:scale-[1.02] transition-all">
