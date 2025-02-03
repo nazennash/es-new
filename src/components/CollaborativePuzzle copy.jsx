@@ -124,39 +124,16 @@ const CollaborativePuzzle = () => {
     };
   }, [actualGameId, userId, isHost, userName, puzzleType]);
 
-  // Add puzzle type listener
-  useEffect(() => {
-    if (!actualGameId) return;
-    
-    const puzzleTypeRef = ref(database, `games/${actualGameId}/puzzleType`);
-    const puzzleTypeListener = onValue(puzzleTypeRef, (snapshot) => {
-      const type = snapshot.val();
-      if (type) setPuzzleType(type);
-    });
-    
-    return () => puzzleTypeListener();
-  }, [actualGameId]);
-
   // Handle image upload (host only)
   const handleImageUpload = async (event) => {
     if (!isHost || !event.target.files[0]) return;
 
     const file = event.target.files[0];
-    const maxSize = 5 * 1024 * 1024; // 5MB limit
-
-    if (file.size > maxSize) {
-      toast.error('Image size must be less than 5MB');
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onerror = () => {
-      toast.error('Failed to read image file');
-    };
 
     reader.onload = async (e) => {
+      const imageData = e.target.result;
       try {
-        const imageData = e.target.result;
         await update(ref(database, `games/${actualGameId}`), {
           image: imageData,
           uploadedAt: Date.now()
@@ -170,23 +147,6 @@ const CollaborativePuzzle = () => {
     };
 
     reader.readAsDataURL(file);
-  };
-
-  // Add puzzle type synchronization
-  const updatePuzzleType = async (newType) => {
-    if (!isHost) return;
-    
-    try {
-      await update(ref(database, `games/${actualGameId}`), {
-        puzzleType: newType,
-        lastUpdated: Date.now()
-      });
-      setPuzzleType(newType);
-      toast.success(`Puzzle type changed to ${newType}`);
-    } catch (error) {
-      console.error('Failed to update puzzle type:', error);
-      toast.error('Failed to change puzzle type');
-    }
   };
 
   // Start game (host only)
@@ -308,7 +268,7 @@ const CollaborativePuzzle = () => {
                   ].map(type => (
                     <button
                       key={type.id}
-                      onClick={() => updatePuzzleType(type.id)}
+                      onClick={() => setPuzzleType(type.id)}
                       className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
                         puzzleType === type.id
                           ? 'bg-blue-500 text-white'
