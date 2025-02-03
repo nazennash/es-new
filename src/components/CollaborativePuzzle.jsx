@@ -17,11 +17,7 @@ const CollaborativePuzzle = () => {
   const [image, setImage] = useState(null);
   const [inviteLink, setInviteLink] = useState('');
   const [showThumbnail, setShowThumbnail] = useState(false);
-<<<<<<< HEAD
-  const [selectedPuzzleType, setSelectedPuzzleType] = useState(PUZZLE_TYPES.JIGSAW);
-=======
   const [puzzleType, setPuzzleType] = useState('classic');
->>>>>>> 4d70be8
   
   // Get current user data
   const userData = JSON.parse(localStorage.getItem('authUser'));
@@ -69,11 +65,7 @@ const CollaborativePuzzle = () => {
             createdAt: Date.now(),
             hostId: userId,
             status: 'waiting',
-<<<<<<< HEAD
-            puzzleType: selectedPuzzleType,
-=======
             puzzleType: puzzleType, // Add puzzle type
->>>>>>> 4d70be8
             players: {
               [userId]: {
                 id: userId,
@@ -131,9 +123,6 @@ const CollaborativePuzzle = () => {
         remove(ref(database, `games/${actualGameId}/players/${userId}`));
       }
     };
-<<<<<<< HEAD
-  }, [actualGameId, userId, isHost, userName, selectedPuzzleType]);
-=======
   }, [actualGameId, userId, isHost, userName, puzzleType]);
 
   // Add puzzle type listener
@@ -148,7 +137,6 @@ const CollaborativePuzzle = () => {
     
     return () => puzzleTypeListener();
   }, [actualGameId]);
->>>>>>> 4d70be8
 
   // Handle image upload (host only)
   const handleImageUpload = async (event) => {

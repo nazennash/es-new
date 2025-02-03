@@ -17,26 +17,6 @@ const POINTS = {
   COMPLETION_BONUS: 1000
 };
 
-<<<<<<< HEAD
-// Define puzzle types
-const PUZZLE_TYPES = {
-  JIGSAW: 'jigsaw',
-  SLIDING: 'sliding',
-  MATCHING: 'matching',
-  WORD: 'word',
-  PATTERN: 'pattern'
-};
-
-const PUZZLE_TYPE_LABELS = {
-  [PUZZLE_TYPES.JIGSAW]: 'Jigsaw Puzzle',
-  [PUZZLE_TYPES.SLIDING]: 'Sliding Puzzle',
-  [PUZZLE_TYPES.MATCHING]: 'Matching Puzzle',
-  [PUZZLE_TYPES.WORD]: 'Word Puzzle',
-  [PUZZLE_TYPES.PATTERN]: 'Pattern Puzzle'
-};
-
-=======
->>>>>>> 4d70be8
 // Shader for piece highlighting and effects
 const puzzlePieceShader = {
   vertexShader: `
@@ -318,10 +298,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [showTutorial, setShowTutorial] = useState(true);
   const [lastHoveredPiece, setLastHoveredPiece] = useState(null);
   const [currentSnapGuide, setCurrentSnapGuide] = useState(null);
-<<<<<<< HEAD
-  const [puzzleType, setPuzzleType] = useState(PUZZLE_TYPES.JIGSAW);
-=======
->>>>>>> 4d70be8
 
   // Multiplayer hook
   const {
@@ -558,108 +534,6 @@ const celebrateProgress = (progress) => {
     }
   };
 
-<<<<<<< HEAD
-  // Create puzzle pieces
-  const createPuzzlePieces = async (imageUrl) => {
-    if (!sceneRef.current) return;
-
-    // Clear existing pieces
-    puzzlePiecesRef.current.forEach(piece => {
-      sceneRef.current.remove(piece);
-    });
-    puzzlePiecesRef.current = [];
- 
-    try {
-      const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-      const aspectRatio = texture.image.width / texture.image.height;
-      
-      // Get settings based on difficulty
-      const settings = DIFFICULTY_SETTINGS[difficulty];
-      const gridSize = settings.grid;
-      const pieceSize = {
-        x: 1 * aspectRatio / gridSize.x,
-        y: 1 / gridSize.y
-      };
-
-      setTotalPieces(gridSize.x * gridSize.y);
-      createPlacementGuides(gridSize, pieceSize);
-
-      // Create pieces
-      for (let y = 0; y < gridSize.y; y++) {
-        for (let x = 0; x < gridSize.x; x++) {
-          const geometry = new THREE.PlaneGeometry(
-            pieceSize.x * 0.95,
-            pieceSize.y * 0.95,
-            32,
-            32
-          );
-
-          const material = new THREE.ShaderMaterial({
-            uniforms: {
-              map: { value: texture },
-              uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
-              uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-              selected: { value: 0.0 },
-              correctPosition: { value: 0.0 },
-              time: { value: 0.0 }
-            },
-            vertexShader: puzzlePieceShader.vertexShader,
-            fragmentShader: puzzlePieceShader.fragmentShader,
-            side: THREE.DoubleSide
-          });
-
-          const piece = new THREE.Mesh(geometry, material);
-          
-          piece.position.x = (x - gridSize.x / 2 + 0.5) * pieceSize.x;
-          piece.position.y = (y - gridSize.y / 2 + 0.5) * pieceSize.y;
-          
-          piece.userData = {
-            id: `piece_${x}_${y}`,
-            originalPosition: piece.position.clone(),
-            gridPosition: { x, y },
-            isPlaced: false
-          };
-
-          sceneRef.current.add(piece);
-          puzzlePiecesRef.current.push(piece);
-        }
-      }
-
-      // Scramble pieces
-      puzzlePiecesRef.current.forEach(piece => {
-        if (!piece.userData.isPlaced) {
-          piece.position.x += (Math.random() - 0.5) * 2;
-          piece.position.y += (Math.random() - 0.5) * 2;
-          piece.position.z = Math.random() * 0.1;
-          piece.rotation.z = settings.rotationEnabled ? (Math.random() - 0.5) * 0.5 : 0;
-        }
-      });
-
-      // Sync initial piece positions if host
-      if (isHost) {
-        const piecesData = {};
-        puzzlePiecesRef.current.forEach(piece => {
-          piecesData[piece.userData.id] = {
-            position: {
-              x: piece.position.x,
-              y: piece.position.y,
-              z: piece.position.z
-            },
-            rotation: piece.rotation.z,
-            isPlaced: piece.userData.isPlaced
-          };
-        });
-        await syncPieceState(piecesData);
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error creating puzzle pieces:', error);
-      toast.error('Failed to create puzzle pieces');
-      setLoading(false);
-    }
-  };
-=======
   // Add puzzle type configurations
   const PUZZLE_CONFIGS = {
     classic: {
@@ -942,7 +816,6 @@ const scramblePieces = (puzzleType) => {
     }
   });
 };
->>>>>>> 4d70be8
 
   // Initialize puzzle when image or difficulty is received
   useEffect(() => {
@@ -1394,25 +1267,6 @@ const scramblePieces = (puzzleType) => {
             <Maximize2 size={20} />
           </button>
         </div>
-<<<<<<< HEAD
-        {isHost && (
-          <div className="flex items-center gap-2 mr-4">
-            <select
-              value={puzzleType}
-              onChange={(e) => setPuzzleType(e.target.value)}
-              className="bg-gray-700 text-white rounded p-2"
-              disabled={isPlaying}
-            >
-              {Object.entries(PUZZLE_TYPE_LABELS).map(([type, label]) => (
-                <option key={type} value={type}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-=======
->>>>>>> 4d70be8
       </div>
 
       {/* Game area */}
