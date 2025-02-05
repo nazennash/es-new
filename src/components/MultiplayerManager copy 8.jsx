@@ -1,31 +1,3 @@
-// 1. Imports
-import React, { useState, useEffect, useRef } from 'react';
-import { useMultiplayerGame } from '../hooks/useMultiplayerGame';
-import { useNavigate } from 'react-router-dom';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
-         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-
-// 2. Constants
-const POINTS = {
-  ACCURATE_PLACEMENT: 100,
-  QUICK_PLACEMENT: 50,
-  COMBO: 25,
-  COMPLETION_BONUS: 1000
-};
-
-const DIFFICULTY_SETTINGS = {
-  easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
-  hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
-  expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
-};
-
 const PUZZLE_TYPES = {
   classic: {
     name: 'Classic 2D',
@@ -92,7 +64,631 @@ const PUZZLE_TYPES = {
   }
 };
 
-// 3. Shaders
+const createPuzzlePieces = async (imageUrl, type = 'classic') => {
+  if (!sceneRef.current) return;
+
+  cleanupCurrentPuzzle();
+  const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
+  const settings = PUZZLE_TYPES[type].settings;
+  const pieces = [];
+
+  switch(type) {
+    case 'cube':
+      pieces.push(...createCubePieces(texture, settings));
+      break;
+    case 'sphere':
+      pieces.push(...createSpherePieces(texture, settings));
+      break;
+    case 'pyramid':
+      pieces.push(...createPyramidPieces(texture, settings));
+      break;
+    case 'cylinder':
+      pieces.push(...createCylinderPieces(texture, settings));
+      break;
+    case 'tower':
+      pieces.push(...createTowerPieces(texture, settings));
+      break;
+    default:
+      pieces.push(...createClassicPieces(texture, settings));
+  }
+
+  pieces.forEach(piece => {
+    sceneRef.current.add(piece);
+    puzzlePiecesRef.current.push(piece);
+  });
+
+  setTotalPieces(pieces.length);
+  createPlacementGuides(type, settings);
+  scramblePieces(type);
+  setupCamera(type);
+  setLoading(false);
+};
+
+const createCubePieces = (texture, settings) => {
+  const pieces = [];
+  const size = 1;
+  const faces = settings.faces;
+
+  faces.forEach((face, faceIndex) => {
+    const grid = DIFFICULTY_SETTINGS[difficulty].grid;
+    for (let y = 0; y < grid.y; y++) {
+      for (let x = 0; x < grid.x; x++) {
+        const geometry = new THREE.PlaneGeometry(size / grid.x * 0.95, size / grid.y * 0.95);
+        const material = createPieceMaterial(texture, x, y, grid);
+        const piece = new THREE.Mesh(geometry, material);
+
+        // Position piece on appropriate face
+        switch(face) {
+          case 'front':
+            piece.position.z = size/2;
+            break;
+          case 'back':
+            piece.position.z = -size/2;
+            piece.rotation.y = Math.PI;
+            break;
+          case 'top':
+            piece.position.y = size/2;
+            piece.rotation.x = -Math.PI/2;
+            break;
+          case 'bottom':
+            piece.position.y = -size/2;
+            piece.rotation.x = Math.PI/2;
+            break;
+          case 'left':
+            piece.position.x = -size/2;
+            piece.rotation.y = -Math.PI/2;
+            break;
+          case 'right':
+            piece.position.x = size/2;
+            piece.rotation.y = Math.PI/2;
+            break;
+        }
+
+        piece.userData = {
+          id: `piece_${face}_${x}_${y}`,
+          face,
+          originalPosition: piece.position.clone(),
+          originalRotation: piece.rotation.clone(),
+          gridPosition: { x, y },
+          isPlaced: false
+        };
+
+        pieces.push(piece);
+      }
+    }
+  });
+
+  return pieces;
+};
+
+const createSpherePieces = (texture, settings) => {
+  const pieces = [];
+  const { radius, segments } = settings;
+  const grid = DIFFICULTY_SETTINGS[difficulty].grid;
+  const segmentsLat = grid.y;
+  const segmentsLon = grid.x;
+
+  for (let lat = 0; lat < segmentsLat; lat++) {
+    for (let lon = 0; lon < segmentsLon; lon++) {
+      const phi = (lat / segmentsLat) * Math.PI;
+      const theta = (lon / segmentsLon) * 2 * Math.PI;
+
+      const geometry = new THREE.SphereGeometry(
+        radius,
+        segments/segmentsLon,
+        segments/segmentsLat,
+        theta,
+        2 * Math.PI / segmentsLon,
+        phi,
+        Math.PI / segmentsLat
+      );
+
+      const material = createPieceMaterial(texture, lon, lat, { x: segmentsLon, y: segmentsLat });
+      const piece = new THREE.Mesh(geometry, material);
+
+      piece.position.setFromSphericalCoords(radius, phi, theta);
+      piece.lookAt(0, 0, 0);
+
+      piece.userData = {
+        id: `piece_sphere_${lat}_${lon}`,
+        type: 'sphere',
+        originalPosition: piece.position.clone(),
+        originalRotation: piece.rotation.clone(),
+        gridPosition: { lat, lon },
+        isPlaced: false
+      };
+
+      pieces.push(piece);
+    }
+  }
+
+  return pieces;
+};
+
+const createPyramidPieces = (texture, settings) => {
+  const pieces = [];
+  const { baseSize, height } = settings;
+  const grid = DIFFICULTY_SETTINGS[difficulty].grid;
+  const levels = grid.y;
+
+  for (let level = 0; level < levels; level++) {
+    const currentSize = baseSize * (1 - level/levels);
+    const currentHeight = height * (level/levels);
+    const sidesPerLevel = 4 - level;
+
+    for (let side = 0; side < sidesPerLevel; side++) {
+      const geometry = new THREE.PlaneGeometry(currentSize, height/levels);
+      const material = createPieceMaterial(texture, side, level, { x: 4, y: levels });
+      const piece = new THREE.Mesh(geometry, material);
+
+      const angle = (side / sidesPerLevel) * Math.PI * 2;
+      piece.position.set(
+        Math.sin(angle) * currentSize/2,
+        currentHeight,
+        Math.cos(angle) * currentSize/2
+      );
+      piece.lookAt(0, currentHeight, 0);
+      piece.rotateX(Math.PI/8);
+
+      piece.userData = {
+        id: `piece_pyramid_${level}_${side}`,
+        type: 'pyramid',
+        level,
+        side,
+        originalPosition: piece.position.clone(),
+        originalRotation: piece.rotation.clone(),
+        isPlaced: false
+      };
+
+      pieces.push(piece);
+    }
+  }
+
+  return pieces;
+};
+
+const createCylinderPieces = (texture, settings) => {
+  const pieces = [];
+  const { radius, height } = settings;
+  const grid = DIFFICULTY_SETTINGS[difficulty].grid;
+
+  for (let y = 0; y < grid.y; y++) {
+    for (let x = 0; x < grid.x; x++) {
+      const angle = (x / grid.x) * Math.PI * 2;
+      const geometry = new THREE.PlaneGeometry(
+        (2 * Math.PI * radius) / grid.x * 0.95,
+        height / grid.y * 0.95
+      );
+
+      const material = createPieceMaterial(texture, x, y, grid);
+      const piece = new THREE.Mesh(geometry, material);
+
+      piece.position.set(
+        Math.sin(angle) * radius,
+        (y / grid.y) * height - height/2,
+        Math.cos(angle) * radius
+      );
+      piece.lookAt(0, piece.position.y, 0);
+
+      piece.userData = {
+        id: `piece_cylinder_${y}_${x}`,
+        type: 'cylinder',
+        originalPosition: piece.position.clone(),
+        originalRotation: piece.rotation.clone(),
+        gridPosition: { x, y },
+        isPlaced: false
+      };
+
+      pieces.push(piece);
+    }
+  }
+
+  return pieces;
+};
+
+const createTowerPieces = (texture, settings) => {
+  const pieces = [];
+  const { baseSize, levels } = settings;
+  const grid = DIFFICULTY_SETTINGS[difficulty].grid;
+  const piecesPerLevel = grid.x;
+
+  for (let level = 0; level < levels; level++) {
+    const currentSize = baseSize * (1 - level/(levels * 1.5));
+    
+    for (let piece = 0; piece < piecesPerLevel; piece++) {
+      const geometry = new THREE.BoxGeometry(
+        currentSize,
+        baseSize/levels * 0.8,
+        currentSize
+      );
+
+      const material = createPieceMaterial(texture, piece, level, { x: piecesPerLevel, y: levels });
+      const mesh = new THREE.Mesh(geometry, material);
+
+      mesh.position.set(
+        0,
+        (level / levels) * baseSize * 2,
+        0
+      );
+
+      mesh.userData = {
+        id: `piece_tower_${level}_${piece}`,
+        type: 'tower',
+        level,
+        originalPosition: mesh.position.clone(),
+        originalRotation: mesh.rotation.clone(),
+        isPlaced: false
+      };
+
+      pieces.push(mesh);
+    }
+  }
+
+  return pieces;
+};
+
+const createPieceMaterial = (texture, x, y, grid) => {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: texture },
+      uvOffset: { value: new THREE.Vector2(x / grid.x, y / grid.y) },
+      uvScale: { value: new THREE.Vector2(1 / grid.x, 1 / grid.y) },
+      selected: { value: 0.0 },
+      correctPosition: { value: 0.0 },
+      time: { value: 0.0 }
+    },
+    vertexShader: puzzlePieceShader.vertexShader,
+    fragmentShader: puzzlePieceShader.fragmentShader,
+    transparent: true,
+    side: THREE.DoubleSide
+  });
+};
+
+const setupCamera = (type) => {
+  if (!cameraRef.current) return;
+
+  const preset = PUZZLE_TYPES[type];
+  cameraRef.current.position.copy(preset.cameraPosition);
+  cameraRef.current.lookAt(0, 0, 0);
+
+  if (controlsRef.current) {
+    switch(type) {
+      case 'sphere':
+        controlsRef.current.maxPolarAngle = Math.PI;
+        controlsRef.current.minPolarAngle = 0;
+        break;
+      case 'tower':
+        controlsRef.current.maxPolarAngle = Math.PI * 0.65;
+        controlsRef.current.minPolarAngle = 0;
+        break;
+      default:
+        controlsRef.current.maxPolarAngle = Math.PI;
+        controlsRef.current.minPolarAngle = -Math.PI;
+    }
+  }
+};
+
+const scramblePieces = (type) => {
+  puzzlePiecesRef.current.forEach(piece => {
+    if (!piece.userData.isPlaced) {
+      switch(type) {
+        case 'cube':
+          piece.position.add(new THREE.Vector3(
+            (Math.random() - 0.5) * 4,
+            (Math.random() - 0.5) * 4,
+            (Math.random() - 0.5) * 4
+          ));
+          break;
+
+        case 'sphere':
+          const sphereRadius = 3;
+          const randPhi = Math.random() * Math.PI;
+          const randTheta = Math.random() * Math.PI * 2;
+          piece.position.setFromSphericalCoords(sphereRadius, randPhi, randTheta);
+          break;
+
+        case 'pyramid':
+          piece.position.add(new THREE.Vector3(
+            (Math.random() - 0.5) * 3,
+            Math.random() * 2,
+            (Math.random() - 0.5) * 3
+          ));
+          piece.rotation.y += (Math.random() - 0.5) * Math.PI;
+          break;
+
+        case 'cylinder':
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 2 + Math.random();
+          piece.position.set(
+            Math.cos(angle) * radius,
+            (Math.random() - 0.5) * 4,
+            Math.sin(angle) * radius
+          );
+          piece.rotation.y += (Math.random() - 0.5) * Math.PI;
+          break;
+
+        case 'tower':
+          piece.position.add(new THREE.Vector3(
+            (Math.random() - 0.5) * 3,
+            Math.random() * 4,
+            (Math.random() - 0.5) * 3
+          ));
+          piece.rotation.y += Math.random() * Math.PI * 2;
+          break;
+
+        default:
+          piece.position.add(new THREE.Vector3(
+            (Math.random() - 0.5) * 2,
+            (Math.random() - 0.5) * 2,
+            Math.random() * 0.1
+          ));
+      }
+    }
+  });
+};
+
+const checkPieceSnap = (piece, snapDistance) => {
+  const type = piece.userData.type || 'classic';
+  
+  switch(type) {
+    case 'cube':
+      return checkCubeSnap(piece, snapDistance);
+    case 'sphere':
+      return checkSphereSnap(piece, snapDistance);
+    case 'pyramid':
+      return checkPyramidSnap(piece, snapDistance);
+    case 'cylinder':
+      return checkCylinderSnap(piece, snapDistance);
+    case 'tower':
+      return checkTowerSnap(piece, snapDistance);
+    default:
+      return checkClassicSnap(piece, snapDistance);
+  }
+};
+
+const checkClassicSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  return piece.position.distanceTo(originalPos) < snapDistance;
+};
+
+const checkCubeSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const originalRot = piece.userData.originalRotation;
+  
+  const positionMatch = piece.position.distanceTo(originalPos) < snapDistance;
+  const rotationMatch = Math.abs(piece.rotation.y - originalRot.y) % (Math.PI * 2) < 0.1;
+  
+  return positionMatch && rotationMatch;
+};
+
+const checkSphereSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const radius = originalPos.length();
+  
+  const currentRadius = piece.position.length();
+  const radiusDiff = Math.abs(currentRadius - radius);
+  
+  const currentDir = piece.position.clone().normalize();
+  const originalDir = originalPos.clone().normalize();
+  const angleMatch = currentDir.dot(originalDir) > 0.99;
+  
+  return radiusDiff < snapDistance && angleMatch;
+};
+
+const checkPyramidSnap = (piece, snapDistance) => {
+  const { level, side } = piece.userData;
+  const originalPos = piece.userData.originalPosition;
+  const originalRot = piece.userData.originalRotation;
+  
+  const positionMatch = piece.position.distanceTo(originalPos) < snapDistance;
+  const heightMatch = Math.abs(piece.position.y - originalPos.y) < snapDistance;
+  const rotationMatch = Math.abs(piece.rotation.y - originalRot.y) % (Math.PI * 2) < 0.1;
+  
+  return positionMatch && heightMatch && rotationMatch;
+};
+
+const checkCylinderSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const radius = Math.sqrt(originalPos.x * originalPos.x + originalPos.z * originalPos.z);
+  
+  const currentRadius = Math.sqrt(piece.position.x * piece.position.x + piece.position.z * piece.position.z);
+  const radiusDiff = Math.abs(currentRadius - radius);
+  
+  const heightMatch = Math.abs(piece.position.y - originalPos.y) < snapDistance;
+  const angleMatch = Math.abs(
+    Math.atan2(piece.position.z, piece.position.x) -
+    Math.atan2(originalPos.z, originalPos.x)
+  ) % (Math.PI * 2) < 0.1;
+  
+  return radiusDiff < snapDistance && heightMatch && angleMatch;
+};
+
+const checkTowerSnap = (piece, snapDistance) => {
+  const originalPos = piece.userData.originalPosition;
+  const heightMatch = Math.abs(piece.position.y - originalPos.y) < snapDistance;
+  const horizontalMatch = new THREE.Vector2(
+    piece.position.x - originalPos.x,
+    piece.position.z - originalPos.z
+  ).length() < snapDistance;
+  
+  const rotationMatch = Math.abs(piece.rotation.y % (Math.PI / 2)) < 0.1;
+  
+  return heightMatch && horizontalMatch && rotationMatch;
+};
+
+const constrain3DMovement = (piece, point, puzzleType) => {
+  switch(puzzleType) {
+    case 'cube':
+      constrainToCubeFace(piece, point);
+      break;
+    case 'sphere':
+      constrainToSphere(piece, point);
+      break;
+    case 'pyramid':
+      constrainToPyramid(piece, point);
+      break;
+    case 'cylinder':
+      constrainToCylinder(piece, point);
+      break;
+    case 'tower':
+      constrainToTowerLevel(piece, point);
+      break;
+    default:
+      constrainToPlane(piece, point);
+  }
+};
+
+const constrainToPlane = (piece, point) => {
+  piece.position.copy(point);
+  piece.position.z = 0;
+};
+
+const constrainToCubeFace = (piece, point) => {
+  const { face } = piece.userData;
+  const size = 1;
+  
+  switch(face) {
+    case 'front':
+      piece.position.z = size/2;
+      break;
+    case 'back':
+      piece.position.z = -size/2;
+      break;
+    case 'top':
+      piece.position.y = size/2;
+      break;
+    case 'bottom':
+      piece.position.y = -size/2;
+      break;
+    case 'left':
+      piece.position.x = -size/2;
+      break;
+    case 'right':
+      piece.position.x = size/2;
+      break;
+  }
+};
+
+const constrainToSphere = (piece, point) => {
+  const radius = PUZZLE_TYPES.sphere.settings.radius;
+  piece.position.copy(point).normalize().multiplyScalar(radius);
+  piece.lookAt(0, 0, 0);
+};
+
+const constrainToPyramid = (piece, point) => {
+  const { level } = piece.userData;
+  const settings = PUZZLE_TYPES.pyramid.settings;
+  const height = settings.height * (level / settings.levels);
+  
+  piece.position.y = height;
+  const direction = new THREE.Vector2(point.x, point.z).normalize();
+  const currentSize = settings.baseSize * (1 - level/settings.levels);
+  
+  piece.position.x = direction.x * currentSize/2;
+  piece.position.z = direction.y * currentSize/2;
+  
+  piece.lookAt(0, height, 0);
+};
+
+const constrainToCylinder = (piece, point) => {
+  const radius = PUZZLE_TYPES.cylinder.settings.radius;
+  const direction = new THREE.Vector2(point.x, point.z).normalize();
+  
+  piece.position.x = direction.x * radius;
+  piece.position.z = direction.y * radius;
+  piece.lookAt(0, piece.position.y, 0);
+};
+
+const constrainToTowerLevel = (piece, point) => {
+  const { level } = piece.userData;
+  const settings = PUZZLE_TYPES.tower.settings;
+  const height = (level / settings.levels) * settings.baseSize * 2;
+  
+  piece.position.y = height;
+  piece.rotation.x = 0;
+  piece.rotation.z = 0;
+};
+
+const createPlacementGuides = (type, settings) => {
+  guideOutlinesRef.current.forEach(guide => {
+    if (guide.parent) guide.parent.remove(guide);
+    if (guide.geometry) guide.geometry.dispose();
+    if (guide.material) guide.material.dispose();
+  });
+  guideOutlinesRef.current = [];
+
+  switch(type) {
+    case 'cube':
+      createCubeGuides(settings);
+      break;
+    case 'sphere':
+      createSphereGuides(settings);
+      break;
+    case 'pyramid':
+      createPyramidGuides(settings);
+      break;
+    case 'cylinder':
+      createCylinderGuides(settings);
+      break;
+    case 'tower':
+      createTowerGuides(settings);
+      break;
+    default:
+      createClassicGuides(settings);
+  }
+};
+
+const cleanupCurrentPuzzle = () => {
+  puzzlePiecesRef.current.forEach(piece => {
+    if (piece.geometry) piece.geometry.dispose();
+    if (piece.material) {
+      if (Array.isArray(piece.material)) {
+        piece.material.forEach(m => m.dispose());
+      } else {
+        piece.material.dispose();
+      }
+    }
+    if (piece.parent) piece.parent.remove(piece);
+  });
+  puzzlePiecesRef.current = [];
+};
+
+// Add these to your component state initializations
+// const [puzzleType, setPuzzleType] = useState('classic');
+// const [showGuides, setShowGuides] = useState(true);
+
+// Add this to your puzzle type change handler
+const handlePuzzleTypeChange = (newType) => {
+  setPuzzleType(newType);
+  setLoading(true);
+  createPuzzlePieces(image, newType);
+  setupCamera(newType);
+};import React, { useState, useEffect, useRef } from 'react';
+import { useMultiplayerGame } from '../hooks/useMultiplayerGame';
+import { useNavigate } from 'react-router-dom';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
+         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+const POINTS = {
+  ACCURATE_PLACEMENT: 100,
+  QUICK_PLACEMENT: 50,
+  COMBO: 25,
+  COMPLETION_BONUS: 1000
+};
+
+const DIFFICULTY_SETTINGS = {
+  easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
+  medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
+  hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
+  expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
+};
+
 const puzzlePieceShader = {
   vertexShader: `
     varying vec2 vUv;
@@ -135,7 +731,6 @@ const puzzlePieceShader = {
   `
 };
 
-// 4. Utility Classes
 class ParticleSystem {
   constructor(scene) {
     this.particles = [];
@@ -223,7 +818,6 @@ class ParticleSystem {
   }
 }
 
-// 5. Component Functions
 const DifficultyMenu = ({ current, onChange, isHost }) => (
   <div className="absolute top-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 w-48">
     <div className="p-3 border-b border-gray-700">
@@ -395,31 +989,24 @@ const MobilePanel = ({ isOpen, onClose, title, children, icon: Icon }) => {
   );
 };
 
-const PuzzleTypeSelector = ({ onSelect, currentType, onClose }) => (
-  <div className="space-y-2 p-4">
-    {Object.entries(PUZZLE_TYPES).map(([type, config]) => (
-      <button
-        key={type}
-        onClick={() => onSelect(type)}
-        className={`w-full p-4 rounded-lg ${
-          currentType === type 
-            ? 'bg-blue-500/20 text-blue-400' 
-            : 'text-gray-300 hover:bg-gray-700/50'
-        } transition-colors`}
-      >
-        <div className="flex flex-col items-start gap-1">
-          <span className="text-lg font-medium">{config.name}</span>
-          <span className="text-sm text-gray-400">{config.description}</span>
-        </div>
-      </button>
-    ))}
-  </div>
-);
-
-// 6. Main Component
 const MultiplayerManager = ({ gameId, isHost, user, image }) => {
-  // State declarations
   const navigate = useNavigate();
+  
+  const containerRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const rendererRef = useRef(null);
+  const composerRef = useRef(null);
+  const controlsRef = useRef(null);
+  const clockRef = useRef(new THREE.Clock());
+  const particleSystemRef = useRef(null);
+  const puzzlePiecesRef = useRef([]);
+  const selectedPieceRef = useRef(null);
+  const guideOutlinesRef = useRef([]);
+  const lastPlacementTimeRef = useRef(Date.now());
+  const comboCountRef = useRef(0);
+  const timerRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [completedPieces, setCompletedPieces] = useState(0);
   const [totalPieces, setTotalPieces] = useState(0);
@@ -442,25 +1029,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [puzzleType, setPuzzleType] = useState('classic');
   const [activePanel, setActivePanel] = useState(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState(null);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
 
-  // Refs
-  const containerRef = useRef(null);
-  const sceneRef = useRef(null);
-  const cameraRef = useRef(null);
-  const rendererRef = useRef(null);
-  const composerRef = useRef(null);
-  const controlsRef = useRef(null);
-  const clockRef = useRef(new THREE.Clock());
-  const particleSystemRef = useRef(null);
-  const puzzlePiecesRef = useRef([]);
-  const selectedPieceRef = useRef(null);
-  const guideOutlinesRef = useRef([]);
-  const lastPlacementTimeRef = useRef(Date.now());
-  const comboCountRef = useRef(0);
-  const timerRef = useRef(null);
-
-  // Custom hook
   const {
     players,
     gameState,
@@ -476,7 +1045,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     updateDifficulty,
   } = useMultiplayerGame(gameId);
 
-  // Helper functions
   const startTimer = () => {
     if (!isPlaying) {
       setIsPlaying(true);
@@ -606,49 +1174,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     }
   };
 
-  // Event handlers
-  const handleGameCompletion = async () => {
-    const endTime = Date.now();
-    const completionTime = endTime - gameStats.startTime;
-    const accuracy = (gameStats.accurateDrops / gameStats.moveCount) * 100;
-    
-    const timeBonus = Math.max(0, 1000 - Math.floor(completionTime / 1000)) * 2;
-    const accuracyBonus = Math.floor(accuracy) * 10;
-    const finalPoints = gameStats.points + POINTS.COMPLETION_BONUS + timeBonus + accuracyBonus;
-    
-    const finalScore = {
-      userId: user.uid,
-      userName: user.displayName || user.email,
-      completionTime,
-      moveCount: gameStats.moveCount,
-      accurateDrops: gameStats.accurateDrops,
-      accuracy,
-      points: finalPoints,
-      timestamp: endTime
-    };
-
-    setWinner(finalScore);
-    await updateGameState({
-      status: 'completed',
-      winner: finalScore,
-      endedAt: endTime
-    });
-    
-    setLeaderboard(prev => [...prev, finalScore].sort((a, b) => b.accurateDrops - a.accurateDrops));
-    toast.success('Puzzle completed! 🎉');
-    updateProgress(100);
-  };
-
-  const handlePuzzleTypeChange = (newType) => {
-    setPuzzleType(newType);
-    setShowTypeSelector(false);
-    setActiveMobilePanel(null);
-    setLoading(true);
-    createPuzzlePieces(image, newType);
-    setupCamera(newType);
-  };
-
-  // Effects
   useEffect(() => {
     if (!containerRef.current || !image) return;
 
@@ -880,6 +1405,38 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     };
   }, [updatePiecePosition, totalPieces, isPlaying, progress]);
 
+  const handleGameCompletion = async () => {
+    const endTime = Date.now();
+    const completionTime = endTime - gameStats.startTime;
+    const accuracy = (gameStats.accurateDrops / gameStats.moveCount) * 100;
+    
+    const timeBonus = Math.max(0, 1000 - Math.floor(completionTime / 1000)) * 2;
+    const accuracyBonus = Math.floor(accuracy) * 10;
+    const finalPoints = gameStats.points + POINTS.COMPLETION_BONUS + timeBonus + accuracyBonus;
+    
+    const finalScore = {
+      userId: user.uid,
+      userName: user.displayName || user.email,
+      completionTime,
+      moveCount: gameStats.moveCount,
+      accurateDrops: gameStats.accurateDrops,
+      accuracy,
+      points: finalPoints,
+      timestamp: endTime
+    };
+
+    setWinner(finalScore);
+    await updateGameState({
+      status: 'completed',
+      winner: finalScore,
+      endedAt: endTime
+    });
+    
+    setLeaderboard(prev => [...prev, finalScore].sort((a, b) => b.accurateDrops - a.accurateDrops));
+    toast.success('Puzzle completed! 🎉');
+    updateProgress(100);
+  };
+
   const createPlacementGuides = (gridSize, pieceSize) => {
     guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
     guideOutlinesRef.current = [];
@@ -962,7 +1519,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     setProgress(syncedProgress);
   }, [gameState?.pieces, syncedProgress, user.uid]);
 
-  // Render
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -1034,15 +1590,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
             )}
 
             <div className="flex rounded-lg overflow-hidden bg-gray-800/50">
-              {isHost && (
-                <button
-                  onClick={() => setShowTypeSelector(!showTypeSelector)}
-                  className="p-2 hover:bg-purple-500/20 transition-colors"
-                  title="Change Puzzle Type"
-                >
-                  <Settings className="w-5 h-5 text-purple-400" />
-                </button>
-              )}
               <button
                 onClick={() => setShowThumbnail(!showThumbnail)}
                 className="p-2 hover:bg-purple-500/20 transition-colors"
@@ -1163,19 +1710,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         </div>
       </MobilePanel>
 
-      <MobilePanel
-        isOpen={activeMobilePanel === 'puzzleType'}
-        onClose={() => setActiveMobilePanel(null)}
-        title="Puzzle Type"
-        icon={Image}
-      >
-        <PuzzleTypeSelector
-          onSelect={handlePuzzleTypeChange}
-          currentType={puzzleType}
-          onClose={() => setActiveMobilePanel(null)}
-        />
-      </MobilePanel>
-
       <div className="flex-1 relative">
         {loading && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
@@ -1193,22 +1727,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
           <div className="absolute top-20 right-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-700">
             <img src={image} alt="Reference" className="w-48 h-auto rounded" />
           </div>
-        )}
-
-        {showTypeSelector && (
-          <FloatingPanel
-            title="Puzzle Type"
-            icon={Image}
-            isOpen={showTypeSelector}
-            onClose={() => setShowTypeSelector(false)}
-            position="right"
-          >
-            <PuzzleTypeSelector
-              onSelect={handlePuzzleTypeChange}
-              currentType={puzzleType}
-              onClose={() => setShowTypeSelector(false)}
-            />
-          </FloatingPanel>
         )}
 
         <button
