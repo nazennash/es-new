@@ -8,7 +8,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { auth } from '../firebase';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { ref, update, getDatabase } from 'firebase/database';
 import elephant from '../assets/elephant.png';
 import pyramid from '../assets/pyramid.png';
@@ -17,6 +17,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tooltip } from 'react-tooltip';
 import DifficultyBar, { difficulties } from './DifficultyBar';
 import { handlePuzzleCompletion, isPuzzleComplete } from './PuzzleCompletionHandler';
+import UpgradeModal from './UpgradeModal';
+import useUserSubscription from '../hooks/useUserSubscription';
+import toast from 'react-hot-toast';
 
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
@@ -43,7 +46,7 @@ class SoundSystem {
 
   async initializeContext() {
     if (this.initialized) return;
-    
+
     try {
       this.context = new (window.AudioContext || window.webkitAudioContext)();
       await this.context.resume();
@@ -56,7 +59,7 @@ class SoundSystem {
 
   async initialize() {
     if (!this.context) return;
-    
+
     this.sounds.pickup = await this.createToneBuffer(440, 0.1);
     this.sounds.place = await this.createToneBuffer(880, 0.15);
     this.sounds.complete = await this.createToneBuffer([523.25, 659.25, 783.99], 0.3);
@@ -80,12 +83,12 @@ class SoundSystem {
 
   async play(soundName) {
     if (!this.enabled || !this.sounds[soundName] || !this.context) return;
-    
+
     // Ensure context is running
     if (this.context.state === 'suspended') {
       await this.context.resume();
     }
-    
+
     const source = this.context.createBufferSource();
     source.buffer = this.sounds[soundName];
     source.connect(this.context.destination);
@@ -102,7 +105,7 @@ class ParticleSystem {
   constructor(scene) {
     this.particles = [];
     this.scene = scene;
-    
+
     const geometry = new THREE.BufferGeometry();
     const material = new THREE.PointsMaterial({
       size: 0.05,
@@ -111,11 +114,11 @@ class ParticleSystem {
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
-    
+
     this.particleSystem = new THREE.Points(geometry, material);
     scene.add(this.particleSystem);
   }
-  
+
   emit(position, count = 20) {
     for (let i = 0; i < count; i++) {
       this.particles.push({
@@ -130,7 +133,7 @@ class ParticleSystem {
     }
     this.updateGeometry();
   }
-  
+
   update(deltaTime) {
     this.particles = this.particles.filter(particle => {
       particle.life -= deltaTime;
@@ -139,7 +142,7 @@ class ParticleSystem {
     });
     this.updateGeometry();
   }
-  
+
   updateGeometry() {
     const positions = new Float32Array(this.particles.length * 3);
     this.particles.forEach((particle, i) => {
@@ -211,13 +214,13 @@ const handlePieceSnap = (piece, particleSystem) => {
   const duration = 0.3;
   const startPos = piece.position.clone();
   const startTime = Date.now();
-  
+
   const animate = () => {
     const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
     const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
-    
+
     piece.position.lerpVectors(startPos, originalPos, easeProgress);
-    
+
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
@@ -227,7 +230,7 @@ const handlePieceSnap = (piece, particleSystem) => {
       }
     }
   };
-  
+
   animate();
 };
 
@@ -242,7 +245,7 @@ const ImageSelectionModal = ({ images, onSelect, isOpen, onClose }) => {
       <div className="bg-gray-800 rounded-xl max-w-4xl w-full p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-white">Choose Your Puzzle</h2>
-          <button 
+          <button
             onClick={onClose}
             className="text-gray-400 hover:text-white"
           >
@@ -263,7 +266,7 @@ const ImageSelectionModal = ({ images, onSelect, isOpen, onClose }) => {
                 src={img.src}
                 alt={img.title}
                 className="w-full h-48 object-contain"
-                // className="w-full h-48 object-cover"
+              // className="w-full h-48 object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4">
                 <h3 className="text-white font-bold text-lg">{img.title}</h3>
@@ -281,6 +284,10 @@ const ImageSelectionModal = ({ images, onSelect, isOpen, onClose }) => {
 // Modify the main component
 const PuzzleGame = () => {
   // State declarations
+  const subscription = useUserSubscription(auth.currentUser?.uid); // Get subscription status
+  const isPremium = subscription.planId === "pro" && subscription.status === "active";
+  const [puzzleCount, setPuzzleCount] = useState(0); // Track puzzle count for the month
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -329,10 +336,10 @@ const PuzzleGame = () => {
       alert('Please upload an image first');
       return;
     }
-    
+
     // Initialize audio on game start
     await initializeAudio();
-    
+
     setGameState('playing');
     setIsTimerRunning(true);
     setStartTime(Date.now());
@@ -340,7 +347,7 @@ const PuzzleGame = () => {
 
   const updateGameState = async (newState) => {
     if (!gameId) return;
-    
+
     try {
       await update(ref(database, `games/${gameId}`), {
         ...newState,
@@ -350,7 +357,7 @@ const PuzzleGame = () => {
       console.error('Error updating game state:', error);
     }
   };
-  
+
   // Then modify the togglePause function to use it
   const togglePause = () => {
     if (gameState === 'playing') {
@@ -407,12 +414,12 @@ const PuzzleGame = () => {
 
   const handleResetGame = () => {
     if (!sceneRef.current || !image) return;
-    
+
     setTimeElapsed(0);
     setCompletedPieces(0);
     setProgress(0);
     setIsTimerRunning(true);
-    
+
     puzzlePiecesRef.current.forEach(piece => {
       piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 2;
       piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 2;
@@ -438,7 +445,7 @@ const PuzzleGame = () => {
         const outlineGeometry = new THREE.EdgesGeometry(
           new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98)
         );
-        const outlineMaterial = new THREE.LineBasicMaterial({ 
+        const outlineMaterial = new THREE.LineBasicMaterial({
           color: 0x4a90e2,
           transparent: true,
           opacity: 0.5,
@@ -468,10 +475,10 @@ const PuzzleGame = () => {
 
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const aspectRatio = texture.image.width / texture.image.height;
-    
+
     // Adjust base size to be larger
     const baseSize = 2.5; // Increased base size for better visibility
-    
+
     // Reduced grid size for larger pieces
     const gridSize = selectedDifficulty.grid; // Use selected difficulty grid size
     const pieceSize = {
@@ -508,7 +515,7 @@ const PuzzleGame = () => {
         });
 
         const piece = new THREE.Mesh(geometry, material);
-        
+
         // Position pieces with proper spacing
         piece.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
         piece.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
@@ -601,22 +608,22 @@ const PuzzleGame = () => {
       if (!particleSystemRef.current) return;
 
       requestAnimationFrame(animate);
-      
+
       const deltaTime = clockRef.current.getDelta();
-      
+
       // Update controls
       controls.update();
-      
+
       // Update particles
       particleSystemRef.current.update(deltaTime);
-      
+
       // Update shader uniforms
       puzzlePiecesRef.current.forEach(piece => {
         if (piece.material.uniforms) {
           piece.material.uniforms.time.value = clockRef.current.getElapsedTime();
         }
       });
-      
+
       // Render scene
       composer.render();
     };
@@ -665,13 +672,13 @@ const PuzzleGame = () => {
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const intersection = new THREE.Vector3();
     const offset = new THREE.Vector3();
-    
+
     const handleMouseDown = (event) => {
       // Prevent interaction if game is not in playing state
       if (gameState !== 'playing') return;
-      
+
       event.preventDefault();
-      
+
       // Calculate mouse position in normalized device coordinates
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -685,7 +692,7 @@ const PuzzleGame = () => {
 
       if (intersects.length > 0) {
         const piece = intersects[0].object;
-        
+
         // Skip if piece is already placed
         if (piece.userData.isPlaced) return;
 
@@ -695,7 +702,7 @@ const PuzzleGame = () => {
 
         // Calculate the intersection point on the drag plane
         raycaster.ray.intersectPlane(dragPlane, intersection);
-        
+
         // Store offset for smooth dragging
         offset.copy(piece.position).sub(intersection);
 
@@ -712,7 +719,7 @@ const PuzzleGame = () => {
     const handleMouseMove = (event) => {
       // Prevent interaction if game is not in playing state
       if (gameState !== 'playing') return;
-      
+
       if (!isDragging || !selectedPieceRef.current) return;
 
       // Update mouse position
@@ -726,15 +733,15 @@ const PuzzleGame = () => {
 
       // Update piece position with offset
       selectedPieceRef.current.position.copy(intersection.add(offset));
-      
+
       // Check distance to original position for snapping feedback
       const originalPos = selectedPieceRef.current.userData.originalPosition;
       const distance = originalPos.distanceTo(selectedPieceRef.current.position);
-      
+
       // Update shader feedback
       if (selectedPieceRef.current.material.uniforms) {
         if (distance < 0.3) {
-          selectedPieceRef.current.material.uniforms.correctPosition.value = 
+          selectedPieceRef.current.material.uniforms.correctPosition.value =
             1.0 - (distance / 0.3);
         } else {
           selectedPieceRef.current.material.uniforms.correctPosition.value = 0.0;
@@ -745,12 +752,12 @@ const PuzzleGame = () => {
     const handleMouseUp = () => {
       // Allow mouseUp to work even if not playing, to ensure cleanup
       if (!selectedPieceRef.current) return;
-      
+
       // Reset piece state and position if game is not in playing mode
       if (gameState !== 'playing') {
         if (selectedPieceRef.current.material.uniforms) {
           selectedPieceRef.current.material.uniforms.selected.value = 0.0;
-          selectedPieceRef.current.material.uniforms.correctPosition.value = 
+          selectedPieceRef.current.material.uniforms.correctPosition.value =
             selectedPieceRef.current.userData.isPlaced ? 1.0 : 0.0;
         }
         selectedPieceRef.current.position.z = 0;
@@ -759,7 +766,7 @@ const PuzzleGame = () => {
         controlsRef.current.enabled = true;
         return;
       }
-      
+
       // Check if piece is close enough to its correct position
       const originalPos = selectedPieceRef.current.userData.originalPosition;
       const distance = originalPos.distanceTo(selectedPieceRef.current.position);
@@ -767,7 +774,7 @@ const PuzzleGame = () => {
       if (distance < 0.3) {
         // Snap to position
         handlePieceSnap(selectedPieceRef.current, particleSystemRef.current);
-        
+
         if (!selectedPieceRef.current.userData.isPlaced) {
           selectedPieceRef.current.userData.isPlaced = true;
           setCompletedPieces(prev => {
@@ -782,7 +789,7 @@ const PuzzleGame = () => {
       // Reset piece state
       if (selectedPieceRef.current.material.uniforms) {
         selectedPieceRef.current.material.uniforms.selected.value = 0.0;
-        selectedPieceRef.current.material.uniforms.correctPosition.value = 
+        selectedPieceRef.current.material.uniforms.correctPosition.value =
           selectedPieceRef.current.userData.isPlaced ? 1.0 : 0.0;
       }
 
@@ -790,7 +797,7 @@ const PuzzleGame = () => {
       if (!selectedPieceRef.current.userData.isPlaced) {
         selectedPieceRef.current.position.z = 0;
       }
-      
+
       // Clear selection and re-enable controls
       selectedPieceRef.current = null;
       isDragging = false;
@@ -817,7 +824,7 @@ const PuzzleGame = () => {
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-  
+
     setLoading(true);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -850,11 +857,11 @@ const PuzzleGame = () => {
       return null;
     }
   };
-  
+
   const downloadPuzzleImage = async () => {
     const imageData = await capturePuzzleImage();
     if (!imageData) return;
-  
+
     const link = document.createElement('a');
     link.href = imageData;
     link.download = `custom-puzzle-${Date.now()}.png`;
@@ -862,19 +869,19 @@ const PuzzleGame = () => {
     link.click();
     document.body.removeChild(link);
   };
-  
+
   const shareToFacebook = () => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
   };
-  
+
   const shareToTwitter = () => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! #PuzzleGame`);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
   };
-  
+
   const shareToWhatsApp = () => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! Create yours: `);
@@ -924,7 +931,7 @@ const PuzzleGame = () => {
   // Add this function inside the component
   // const handlePuzzleCompletionCultural = async (puzzleData) => {
   //   if (!auth.currentUser) return;
-    
+
   //   try {
   //     const db = getFirestore();
   //     await addDoc(collection(db, 'completed_puzzles'), {
@@ -951,7 +958,7 @@ const PuzzleGame = () => {
       //   totalPieces,
       //   completedPieces
       // };
-      
+
       // console.log('Puzzle Completion Data:', completionData);
       // handlePuzzleCompletionCultural(completionData);
 
@@ -967,11 +974,11 @@ const PuzzleGame = () => {
 
       console.log('Data sent to handlePuzzleCompletion:', completionData);
       handlePuzzleCompletion(completionData);
-      
+
       // Log achievement data
       const achievements = checkAchievements();
       console.log('Achievements Earned:', achievements);
-      
+
       // Update game state
       if (gameId) {
         const gameUpdateData = {
@@ -989,7 +996,7 @@ const PuzzleGame = () => {
   const synchronousCompletion = async () => {
     try {
       console.log('Starting synchronous completion process...');
-      
+
       // Wait for puzzle completion
       await handlePuzzleCompletionCultural({
         puzzleId: `custom_${Date.now()}`,
@@ -1000,11 +1007,11 @@ const PuzzleGame = () => {
         imageUrl: image,
         timer: timeElapsed
       });
-      
+
       // Wait for achievements check
       const achievements = checkAchievements();
       console.log('Processing achievements:', achievements);
-      
+
       // Wait for game state update
       if (gameId) {
         await updateGameState({
@@ -1013,7 +1020,7 @@ const PuzzleGame = () => {
           achievements: achievements.map(a => a.id)
         });
       }
-      
+
       console.log('Completion process finished successfully');
       setShowShareModal(true);
     } catch (error) {
@@ -1025,7 +1032,7 @@ const PuzzleGame = () => {
   useEffect(() => {
     const soundSystem = new SoundSystem();
     soundRef.current = soundSystem;
-    
+
     // Cleanup
     return () => {
       if (soundRef.current?.context) {
@@ -1044,54 +1051,54 @@ const PuzzleGame = () => {
   // Add mouse interaction handling
   const setupMouseInteraction = () => {
     if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
-  
+
     const handlePieceInteraction = async (event, piece) => {
       if (!piece || piece.userData.isPlaced) return;
-      
+
       // Ensure audio is initialized on first interaction
       await initializeAudio();
-      
+
       // Update piece visual feedback
       if (piece.material.uniforms) {
         piece.material.uniforms.selected.value = 1.0;
       }
-      
+
       // Play sound effect
       soundRef.current?.play('pickup');
     };
-  
+
     // ... rest of mouse handling code ...
   };
 
   // Add achievement handling
   const checkAchievements = () => {
     const achievements = [];
-    
+
     // Speed Demon achievement
     if (timeElapsed < 120) {
       achievements.push(ACHIEVEMENTS.find(a => a.id === 'speed_demon'));
     }
-    
+
     // Perfectionist achievement
     if (!puzzlePiecesRef.current.some(p => p.userData.misplaced)) {
       achievements.push(ACHIEVEMENTS.find(a => a.id === 'perfectionist'));
     }
-    
+
     // Persistent achievement
     if (difficulty === 'expert') {
       achievements.push(ACHIEVEMENTS.find(a => a.id === 'persistent'));
     }
-    
+
     return achievements;
   };
 
   // Modify puzzle completion handler
   const handlePuzzleCompletionCultural = async () => {
     if (!auth.currentUser) return;
-    
+
     const achievements = checkAchievements();
     const db = getFirestore();
-    
+
     try {
       await addDoc(collection(db, 'completed_puzzles'), {
         userId: auth.currentUser.uid,
@@ -1101,13 +1108,13 @@ const PuzzleGame = () => {
         completedAt: serverTimestamp(),
         achievements: achievements.map(a => a.id)
       });
-      
+
       // Play completion sound
       soundRef.current?.play('complete');
-      
+
       // Show achievements
       setCompletedAchievements(achievements);
-      
+
     } catch (error) {
       console.error('Error saving completion:', error);
     }
@@ -1116,10 +1123,10 @@ const PuzzleGame = () => {
   // Add game state management
   const initializeGameState = async () => {
     if (!auth.currentUser) return;
-    
+
     const db = getDatabase();
     const gameRef = ref(db, `games/${gameId}`);
-    
+
     try {
       await update(gameRef, {
         createdAt: serverTimestamp(),
@@ -1134,16 +1141,16 @@ const PuzzleGame = () => {
 
   const handlePieceComplete = async (piece) => {
     if (!piece) return;
-    
+
     // Ensure audio is initialized
     await initializeAudio();
-    
+
     // Play sound effect
     soundRef.current?.play('place');
-    
+
     // Visual effects
     particleSystemRef.current?.emit(piece.position, 30);
-    
+
     // Add ripple effect
     const ripple = new THREE.Mesh(
       new THREE.CircleGeometry(0.1, 32),
@@ -1153,24 +1160,24 @@ const PuzzleGame = () => {
         opacity: 0.5
       })
     );
-    
+
     ripple.position.copy(piece.position);
     ripple.position.z = 0.01;
     sceneRef.current.add(ripple);
-  
+
     // Animate ripple
     const animate = () => {
       const scale = ripple.scale.x + 0.05;
       ripple.scale.set(scale, scale, 1);
       ripple.material.opacity -= 0.02;
-      
+
       if (ripple.material.opacity > 0) {
         requestAnimationFrame(animate);
       } else {
         sceneRef.current.remove(ripple);
       }
     };
-    
+
     animate();
   };
 
@@ -1186,7 +1193,7 @@ const PuzzleGame = () => {
       const confirmChange = window.confirm('Changing difficulty will reset the current puzzle. Continue?');
       if (!confirmChange) return;
     }
-    
+
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
     if (image) {
@@ -1209,7 +1216,7 @@ const PuzzleGame = () => {
         <div className="flex items-center gap-4">
           {/* Logo/Title */}
           <h1 className="text-2xl font-bold text-white">Cultural Puzzle</h1>
-          
+
           {/* Game Controls */}
           <div className="flex items-center gap-2">
             <button
@@ -1230,7 +1237,7 @@ const PuzzleGame = () => {
               selectedDifficulty={selectedDifficulty}
               onSelect={handleDifficultyChange}
             />
-            
+
             {gameState !== 'initial' && (
               <button
                 onClick={togglePause}
@@ -1248,7 +1255,7 @@ const PuzzleGame = () => {
             <Clock className="w-4 h-4 text-blue-400" />
             <span className="text-white font-mono">{formatTime(timeElapsed)}</span>
           </div>
-          
+
           {totalPieces > 0 && (
             <div className="flex items-center gap-3">
               <div className="text-sm text-gray-400">Progress</div>
@@ -1304,9 +1311,8 @@ const PuzzleGame = () => {
           <div className="w-full h-px bg-gray-700 my-1" />
           <button
             onClick={() => setShowThumbnail(!showThumbnail)}
-            className={`p-2 text-white rounded transition-colors ${
-              showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
-            }`}
+            className={`p-2 text-white rounded transition-colors ${showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
+              }`}
             title="Toggle Reference Image"
           >
             <Image className="w-5 h-5" />
@@ -1354,6 +1360,11 @@ const PuzzleGame = () => {
         }}
         isOpen={showImageSelection}
         onClose={() => setShowImageSelection(false)}
+      />
+      <UpgradeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpgrade={() => navigate("/payment-plans")}
       />
 
       {/* Share Modal */}

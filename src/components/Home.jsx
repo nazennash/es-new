@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Joyride, { STATUS } from 'react-joyride'; // Import Joyride
 import { auth } from '../firebase'; // Ensure this is initialized correctly
 import { useNavigate } from 'react-router-dom';
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
   onSnapshot,
   doc,
   limit
@@ -15,6 +16,7 @@ import { nanoid } from 'nanoid';
 import QuickAccess from './QuickAccess';
 import toast from 'react-hot-toast';
 import { FaPuzzlePiece, FaTrophy, FaClock, FaSignOutAlt, FaChartBar, FaImage, FaGlobe, FaUsers, FaCrown, FaCheck } from 'react-icons/fa';
+import UpgradeModalHome from './UpgradeModalHome';
 
 // Initialize Firestore
 const db = getFirestore();
@@ -49,6 +51,7 @@ const useUserData = (userId) => {
       bestTime: null,
       averageTime: null
     },
+    subscription: { planId: "free", status: "inactive" },
     loading: true,
     error: null
   });
@@ -61,12 +64,13 @@ const useUserData = (userId) => {
     const cachedStats = getCachedData(`userStats-${userId}`);
 
     if (cachedPuzzles && cachedStats) {
-      setData({
+      setData((prev) => ({
+        ...prev,
         recentPuzzles: cachedPuzzles,
         stats: cachedStats,
         loading: false,
         error: null
-      });
+      }));
     }
 
     // Real-time listener for recent puzzles
@@ -146,15 +150,55 @@ const useUserData = (userId) => {
       toast.error('Failed to load user stats');
     });
 
+    // Real-time listener for user subscription
+    const subscriptionRef = doc(db, 'subscriptions', userId);
+    const unsubscribeSubscription = onSnapshot(subscriptionRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setData((prev) => ({
+          ...prev,
+          subscription: docSnap.data()
+        }));
+      } else {
+        setData((prev) => ({
+          ...prev,
+          subscription: { planId: "free", status: "inactive" }
+        }));
+      }
+    });
+
     // Cleanup listeners on unmount or userId change
     return () => {
       unsubscribePuzzles();
       unsubscribeStats();
+      unsubscribeSubscription();
     };
   }, [userId]);
 
   return data;
 };
+
+const useUserSubscription = (userId) => {
+  const [subscription, setSubscription] = useState({ planId: "free", status: "inactive" });
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const subscriptionRef = doc(db, 'subscriptions', userId);
+    const unsubscribe = onSnapshot(subscriptionRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setSubscription(docSnap.data());
+      } else {
+        setSubscription({ planId: "free", status: "inactive" });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  return subscription;
+};
+
+
 
 // Memoized time formatter utility
 const formatTime = (time) => {
@@ -169,16 +213,101 @@ const formatTime = (time) => {
 const Home = ({ user }) => {
   const navigate = useNavigate();
   const { recentPuzzles, stats, loading, error } = useUserData(user?.uid);
+  const subscription = useUserSubscription(user?.uid);
+  const isPremium = subscription.planId === "pro" && subscription.status === "active";
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Onboarding state
+  const [runOnboarding, setRunOnboarding] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  // Onboarding steps
+  const steps = [
+    {
+      target: '.stats-section',
+      content: 'Here you can see your puzzle-solving stats!',
+      disableBeacon: true,
+    },
+    {
+      target: '.start-puzzle-section',
+      content: 'Start a new puzzle by choosing one of these options.',
+    },
+    {
+      target: '.premium-section',
+      content: 'Upgrade to Premium to unlock amazing features!',
+    },
+  ];
+
+  // Handle onboarding completion
+  const handleJoyrideCallback = (data) => {
+    const { action, index, status, type } = data;
+
+    if (type === "step:after") {
+      // Move to the next step
+      setStepIndex(index + 1);
+    }
+
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setRunOnboarding(false);
+      localStorage.setItem("onboardingCompleted", "true"); // Save progress
+    }
+  };
+
+
+  // Start onboarding for new users
+  useEffect(() => {
+    const onboardingCompleted = localStorage.getItem('onboardingCompleted');
+    if (!onboardingCompleted) {
+      setRunOnboarding(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPremium) {
+      const interval = setInterval(() => {
+        toast.success("Your premium subscription gives you early access to our new African Heritage Puzzle Pack!", {
+          icon: <FaCrown className="text-yellow-500" />,
+        });
+      }, 10 * 60 * 1000); // Show notification every 10 minutes
+
+      return () => clearInterval(interval); // Cleanup interval on unmount
+    }
+  }, [isPremium]);
+
+  useEffect(() => {
+    if (!isPremium) {
+      const interval = setInterval(() => {
+        toast.success("Unlock advanced styles with Premium!", {
+          icon: <FaCrown className="text-yellow-500" />,
+        });
+      }, 0.1 * 60 * 1000); // Show notification every 10 minutes
+
+      return () => clearInterval(interval); // Cleanup interval on unmount
+    }
+  }, [isPremium]);
+
 
   // Memoized Stats Section to prevent unnecessary re-renders
   const StatsSection = useMemo(() => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 stats-section">
       <div className="bg-white rounded-lg shadow-lg p-6 transform transition-transform hover:scale-105 hover:shadow-2xl">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <FaPuzzlePiece className="mr-2 text-blue-600" /> Puzzles Completed
         </h3>
         <p className="text-3xl font-bold text-blue-600">{stats.completed}</p>
+        {!isPremium && stats.completed > 0 && (
+          <p className="text-sm text-gray-500 mt-2">
+            You’ve completed {stats.completed} puzzles. With <span className="text-yellow-600 font-semibold">Premium</span>, you could access 100+ puzzles!
+            <button
+              onClick={() => navigate('/payment-plans')}
+              className="text-blue-500 underline ml-1 hover:text-blue-700"
+            >
+              Upgrade Now
+            </button>
+          </p>
+        )}
       </div>
+
       <div className="bg-white rounded-lg shadow-lg p-6 transform transition-transform hover:scale-105 hover:shadow-2xl">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <FaTrophy className="mr-2 text-green-600" /> Best Time
@@ -210,22 +339,15 @@ const Home = ({ user }) => {
     }
   }, [navigate]);
 
-  const handleStartPuzzle = useCallback((type) => {
-    switch(type) {
-      case 'custom':
-        navigate('/puzzle/custom');
-        break;
-      case 'cultural':
-        navigate('/puzzle/cultural');
-        break;
-      case 'multiplayer':
-        const gameId = nanoid(6);
-        navigate(`/puzzle/multiplayer/${gameId}`);
-        break;
-      default:
-        break;
+  const handleStartPuzzle = (type) => {
+    if (!isPremium && type === 'multiplayer') {
+      toast.error("Upgrade to Premium to access multiplayer puzzles!");
+      setIsModalOpen(true);
+      return;
     }
-  }, [navigate]);
+    navigate(`/puzzle/${type}`);
+  };
+
 
   // Loading state
   if (loading) {
@@ -256,6 +378,21 @@ const Home = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-500 to-purple-600 relative overflow-hidden">
+      {/* Joyride Onboarding */}
+      <Joyride
+        steps={steps}
+        run={runOnboarding}
+        stepIndex={stepIndex}
+        callback={handleJoyrideCallback}
+        continuous={true}  // Enables smooth progression
+        scrollToFirstStep={true} // Ensures scrolling correctly
+        disableOverlayClose={true} // Prevents users from clicking outside to exit
+        showProgress={true}
+        showSkipButton={true}
+        styles={{ options: { primaryColor: "#6366f1" } }}
+      />
+
+
       {/* Background Animation */}
       <div className="absolute inset-0 z-0">
         <div className="puzzle-bg"></div>
@@ -268,6 +405,7 @@ const Home = ({ user }) => {
             <h1 className="text-3xl font-bold text-gray-900">
               Welcome, {user?.displayName || user?.email}!
             </h1>
+            <p>Subscription: {isPremium ? "Premium" : "Free"}</p>
             <p className="mt-1 text-sm text-gray-500">
               Ready to solve some puzzles?
             </p>
@@ -289,13 +427,19 @@ const Home = ({ user }) => {
         </div>
       </div>
 
+      <UpgradeModalHome
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpgrade={() => navigate("/payment-plans")}
+      />
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8 relative z-10">
         {/* Stats Section */}
         {StatsSection}
 
         {/* Start New Puzzle Section */}
-        <div className="bg-white rounded-lg shadow-lg mb-8 transform transition-transform hover:scale-102 hover:shadow-2xl">
+        <div className="bg-white rounded-lg shadow-lg mb-8 transform transition-transform hover:scale-102 hover:shadow-2xl start-puzzle-section">
           <div className="p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Start New Puzzle</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -354,13 +498,13 @@ const Home = ({ user }) => {
             {recentPuzzles.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {recentPuzzles.map(puzzle => (
-                  <div 
-                    key={puzzle.id} 
+                  <div
+                    key={puzzle.id}
                     className="border rounded-lg p-4 hover:shadow-md transition duration-200 transform hover:scale-105"
                   >
-                    <img 
-                      src={puzzle.thumbnail} 
-                      alt="Puzzle thumbnail" 
+                    <img
+                      src={puzzle.thumbnail}
+                      alt="Puzzle thumbnail"
                       className="w-full h-32 object-contain rounded mb-2"
                       loading="lazy"
                     />
@@ -378,41 +522,44 @@ const Home = ({ user }) => {
         </div>
 
         {/* Premium Features Section */}
-        <div className="bg-white rounded-lg shadow-lg transform transition-transform hover:scale-102 hover:shadow-2xl mt-8">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <FaCrown className="text-yellow-500 mr-2" />
-              Premium Features
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Unlock Amazing Features</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center text-gray-600">
-                    <FaCheck className="text-green-500 mr-2" />
-                    Create custom puzzles
-                  </li>
-                  <li className="flex items-center text-gray-600">
-                    <FaCheck className="text-green-500 mr-2" />
-                    Access exclusive themes
-                  </li>
-                  <li className="flex items-center text-gray-600">
-                    <FaCheck className="text-green-500 mr-2" />
-                    Multiplayer challenges
-                  </li>
-                </ul>
-              </div>
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => navigate('/payment-plans')}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:from-purple-700 hover:to-blue-700 transform transition-transform hover:scale-105"
-                >
-                  View Premium Plans
-                </button>
+        {!isPremium && (
+          <div className="bg-white rounded-lg shadow-lg transform transition-transform hover:scale-102 hover:shadow-2xl mt-8 premium-section">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <FaCrown className="text-yellow-500 mr-2" />
+                Premium Features
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Unlock Amazing Features</h3>
+                  <ul className="space-y-2">
+                    <li className="flex items-center text-gray-600">
+                      <FaCheck className="text-green-500 mr-2" />
+                      Create custom puzzles
+                    </li>
+                    <li className="flex items-center text-gray-600">
+                      <FaCheck className="text-green-500 mr-2" />
+                      Access exclusive themes
+                    </li>
+                    <li className="flex items-center text-gray-600">
+                      <FaCheck className="text-green-500 mr-2" />
+                      Multiplayer challenges
+                    </li>
+                  </ul>
+                </div>
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={() => navigate('/payment-plans')}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg shadow-lg hover:from-purple-700 hover:to-blue-700 transform transition-transform hover:scale-105"
+                  >
+                    View Premium Plans
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );
