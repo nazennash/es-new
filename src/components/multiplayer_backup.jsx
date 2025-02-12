@@ -433,7 +433,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   });
   const [winner, setWinner] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
-  // const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showTutorial, setShowTutorial] = useState(true);
@@ -473,16 +473,13 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     progress: syncedProgress,
     updateProgress,
     difficulty,
-    isPlaying,
-    startGame,
-    pauseGame,
     updateDifficulty,
   } = useMultiplayerGame(gameId);
 
   // Helper functions
   const startTimer = () => {
     if (!isPlaying) {
-      startGame();
+      setIsPlaying(true);
       timerRef.current = setInterval(() => {
         setElapsedTime((prev) => {
           const newTime = prev + 100;
@@ -495,19 +492,13 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
   const pauseTimer = () => {
     if (isPlaying) {
-      pauseGame();
+      setIsPlaying(false);
       clearInterval(timerRef.current);
     }
   };
 
-  useEffect(() => {
-    if (gameState?.status === 'playing' && image) {
-      createPuzzlePieces(image);
-    }
-  }, [gameState?.status, image]);
-
   const resetGame = () => {
-    startGame();
+    setIsPlaying(false);
     clearInterval(timerRef.current);
     setElapsedTime(0);
     updateTimer(0);

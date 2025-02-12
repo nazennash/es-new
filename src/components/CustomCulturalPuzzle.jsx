@@ -1114,6 +1114,30 @@ const PuzzleGame = () => {
 
       // Show achievements
       setCompletedAchievements(achievements);
+      // Check if the user is on a free plan
+      if (!isPremium) {
+        // Get the current month's puzzles
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const q = query(
+          collection(db, 'completed_puzzles'),
+          where('userId', '==', auth.currentUser.uid),
+          where('completedAt', '>=', startOfMonth)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const puzzleCount = querySnapshot.size;
+
+        if (puzzleCount === 1) {
+          // Soft limit: User has completed 1 puzzle, show a toast
+          toast.success("You've completed 1 puzzle this month. You have 1 more puzzle left!");
+        } else if (puzzleCount >= 2) {
+          // Hard limit: User has completed 2 puzzles, show upgrade modal
+          toast.error("You've reached your monthly limit for creating custom puzzles. Upgrade to Premium to create more!");
+          setIsModalOpen(true); // Show the upgrade modal
+        }
+      }
 
     } catch (error) {
       console.error('Error saving completion:', error);

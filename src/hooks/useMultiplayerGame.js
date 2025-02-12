@@ -5,7 +5,11 @@ import toast from 'react-hot-toast';
 
 export const useMultiplayerGame = (gameId, isHost = false) => {
   const [players, setPlayers] = useState({});
-  const [gameState, setGameState] = useState(null);
+  const [gameState, setGameState] = useState({
+    status: 'waiting',
+    isPlaying: false,
+    totalPiecesPlaced: 0,
+  });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [timer, setTimer] = useState(0);
@@ -48,7 +52,11 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
       const gameListener = onValue(gameRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          setGameState(data);
+          setGameState({
+            ...data,
+            isPlaying: data.status === 'playing',
+            totalPiecesPlaced: data.totalPiecesPlaced || 0,
+          });
           setLoading(false);
         } else {
           setError('Game not found');
@@ -135,6 +143,12 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
         lastUpdatedBy: userId,
         lastUpdated: Date.now()
       });
+
+      if (position.isPlaced) {
+        await update(ref(database, `games/${gameId}`), {
+          totalPiecesPlaced: gameState.totalPiecesPlaced + 1,
+        });
+      }
     } catch (error) {
       console.error('Update piece position error:', error);
       setError('Failed to update piece position');
@@ -205,6 +219,13 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
       toast.error('Failed to start game');
     }
   }, [gameId, isHost]);
+
+  const pauseGame = useCallback(async () => {
+    await update(ref(database, `games/${gameId}`), {
+    status: 'waiting',
+    });
+    // isPlaying = false;
+  })
 
   // End game
   const endGame = useCallback(async (winner = null) => {
@@ -288,6 +309,7 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
     timer,
     progress,
     difficulty,
+    isPlaying: gameState?.isPlaying || false,
 
     // Game actions
     updateGameState,
@@ -296,6 +318,7 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
     syncPieceState,
     setPlayerReady,
     startGame,
+    pauseGame,
     endGame,
     checkGameCompletion,
     updateTimer,

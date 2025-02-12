@@ -345,7 +345,13 @@ const Home = ({ user }) => {
       setIsModalOpen(true);
       return;
     }
-    navigate(`/puzzle/${type}`);
+
+    if (type === 'multiplayer') {
+      const gameId = nanoid(6);
+      navigate(`/puzzle/multiplayer/${gameId}`);
+    } else {
+      navigate(`/puzzle/${type}`);
+    }
   };
 
 
