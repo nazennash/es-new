@@ -211,30 +211,33 @@ const puzzlePieceShader = {
 // 5. Helper functions (used within component)
 const handlePieceSnap = (piece, particleSystem) => {
   const originalPos = piece.userData.originalPosition;
-  const duration = 0.2; // Reduced duration for snappier feel
+  const originalRot = piece.userData.originalRotation || new THREE.Euler(0, 0, 0);
+  const duration = 0.3;
   const startPos = piece.position.clone();
   const startRot = piece.rotation.clone();
   const startTime = Date.now();
 
   const animate = () => {
     const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
-    const easeProgress = 1 - Math.pow(1 - progress, 4); // Quartic ease-out for snappier movement
+    const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
 
-    // Snap position and rotation
+    // Position interpolation
     piece.position.lerpVectors(startPos, originalPos, easeProgress);
-    piece.rotation.z = THREE.MathUtils.lerp(startRot.z, 0, easeProgress);
+
+    // Rotation interpolation
+    piece.rotation.x = THREE.MathUtils.lerp(startRot.x, originalRot.x, easeProgress);
+    piece.rotation.y = THREE.MathUtils.lerp(startRot.y, originalRot.y, easeProgress);
+    piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z, easeProgress);
 
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      // Ensure perfect alignment
+      // Ensure final position and rotation are exact
       piece.position.copy(originalPos);
-      piece.rotation.set(0, 0, 0);
+      piece.rotation.copy(originalRot);
       if (particleSystem) {
         particleSystem.emit(piece.position, 30);
       }
-      // Play snap sound
-      soundRef.current?.play('place');
     }
   };
 
@@ -727,42 +730,45 @@ const PuzzleGame = () => {
     };
 
     const handleMouseMove = (event) => {
-      if (gameState !== 'playing' || !isDragging || !selectedPieceRef.current) return;
+      // Prevent interaction if game is not in playing state
+      if (gameState !== 'playing') return;
 
+      if (!isDragging || !selectedPieceRef.current) return;
+
+      // Update mouse position
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+      // Update the picking ray and find intersection with drag plane
       raycaster.setFromCamera(mouse, cameraRef.current);
       raycaster.ray.intersectPlane(dragPlane, intersection);
+
+      // Update piece position with offset
       selectedPieceRef.current.position.copy(intersection.add(offset));
 
-      // Check distance to original position
-      const originalPos = selectedPieceRef.current.userData.originalPosition;
-      const distance = originalPos.distanceTo(selectedPieceRef.current.position);
-      
-      // Auto-snap when very close (reduced threshold)
-      if (distance < 0.2) { // Reduced snap distance threshold
-        handlePieceSnap(selectedPieceRef.current, particleSystemRef.current);
-        selectedPieceRef.current.userData.isPlaced = true;
-        setCompletedPieces(prev => {
-          const newCount = prev + 1;
-          setProgress((newCount / totalPieces) * 100);
-          return newCount;
-        });
-        handlePieceComplete(selectedPieceRef.current);
-        
-        // Reset dragging state
-        isDragging = false;
-        selectedPieceRef.current = null;
-        controlsRef.current.enabled = true;
-        return;
+      // Rotation handling with shift key
+      if (event.shiftKey && selectedPieceRef.current) {
+        const deltaX = event.movementX * rotationSpeed;
+        selectedPieceRef.current.rotation.z = initialRotation + deltaX;
       }
 
-      // Update visual feedback
+      // Check distance to original position for snapping feedback
+      const originalPos = selectedPieceRef.current.userData.originalPosition;
+      const distance = originalPos.distanceTo(selectedPieceRef.current.position);
+      const rotationDiff = Math.abs(selectedPieceRef.current.rotation.z % (Math.PI * 2));
+
+      const isNearCorrectPosition = distance < 0.3;
+      const isNearCorrectRotation = rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2;
+
+      // Update shader feedback
       if (selectedPieceRef.current.material.uniforms) {
-        selectedPieceRef.current.material.uniforms.correctPosition.value = 
-          distance < 0.3 ? (1 - distance / 0.3) : 0;
+        if (isNearCorrectPosition && isNearCorrectRotation) {
+          selectedPieceRef.current.material.uniforms.correctPosition.value =
+            1.0 - (Math.max(distance / 0.3, rotationDiff / 0.2));
+        } else {
+          selectedPieceRef.current.material.uniforms.correctPosition.value = 0.0;
+        }
       }
     };
 
