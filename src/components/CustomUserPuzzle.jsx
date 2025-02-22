@@ -160,14 +160,28 @@ const puzzlePieceShader = {
   vertexShader: `
     varying vec2 vUv;
     varying vec3 vNormal;
+    varying vec3 vViewPosition;
     
     uniform vec2 uvOffset;
     uniform vec2 uvScale;
+    uniform float depth;
+    uniform sampler2D heightMap;
     
     void main() {
       vUv = uvOffset + uv * uvScale;
-      vNormal = normalize(normalMatrix * normal);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      
+      // Sample height map for displacement
+      vec4 heightValue = texture2D(heightMap, vUv);
+      float displacement = (heightValue.r + heightValue.g + heightValue.b) / 3.0;
+      
+      // Create bas relief effect by moving vertices along their normals
+      vec3 newPosition = position + normal * displacement * depth;
+      
+      vec4 mvPosition = modelViewMatrix * vec4(newPosition, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+      
+      vViewPosition = -mvPosition.xyz;
+      vNormal = normalMatrix * normal;
     }
   `,
   fragmentShader: `
@@ -178,18 +192,30 @@ const puzzlePieceShader = {
     
     varying vec2 vUv;
     varying vec3 vNormal;
-    
-    // Add hover glow effect
-    vec3 addHoverGlow(vec3 color, float hover) {
-      vec3 glowColor = vec3(0.4, 0.6, 1.0);
-      return mix(color, glowColor, hover * 0.3);
-    }
+    varying vec3 vViewPosition;
     
     void main() {
       vec4 texColor = texture2D(map, vUv);
       vec3 normal = normalize(vNormal);
+      
+      // Enhanced lighting calculation for bas relief
+      vec3 viewDir = normalize(vViewPosition);
       vec3 lightDir = normalize(vec3(5.0, 5.0, 5.0));
+      
+      // Ambient light
+      float ambient = 0.3;
+      
+      // Diffuse lighting
       float diff = max(dot(normal, lightDir), 0.0);
+      float diffuse = diff * 0.7;
+      
+      // Specular lighting for metallic effect
+      vec3 reflectDir = reflect(-lightDir, normal);
+      float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+      float specular = spec * 0.3;
+      
+      // Combine lighting components
+      vec3 lighting = vec3(ambient + diffuse + specular);
       
       vec3 highlightColor = vec3(0.3, 0.6, 1.0);
       float highlightStrength = selected * 0.5 * (0.5 + 0.5 * sin(time * 3.0));
@@ -197,10 +223,9 @@ const puzzlePieceShader = {
       vec3 correctColor = vec3(0.2, 1.0, 0.3);
       float correctStrength = correctPosition * 0.5 * (0.5 + 0.5 * sin(time * 2.0));
       
-      vec3 finalColor = texColor.rgb * (vec3(0.3) + vec3(0.7) * diff);
+      vec3 finalColor = texColor.rgb * lighting;
       finalColor += highlightColor * highlightStrength + correctColor * correctStrength;
       
-      finalColor = addHoverGlow(finalColor, selected);
       gl_FragColor = vec4(finalColor, texColor.a);
     }
   `
@@ -487,7 +512,7 @@ const PuzzleGame = () => {
             heightMap: { value: texture },
             uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
             uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            extrusionScale: { value: 0.15 },
+            depth: { value: 0.2 },
             selected: { value: 0.0 },
             correctPosition: { value: 0.0 },
             time: { value: 0.0 }
@@ -1364,15 +1389,14 @@ const PuzzleGame = () => {
                 {completedPieces} / {totalPieces}
               </div>
             </div>
-            <div className="w-40 h-3 bg-gray-700 rounded-full overflow-hidden shadow-inner">
+            <div className="w-40 h-3 bg-gray-700 rounded-full overflow-hidden shadow-inner relative">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.5 }}
-                className="h-full bg-gradient-to-r from-blue-500 to-green-500 relative"
-              >
-                <div className="absolute inset-0 bg-white opacity-20 animate-pulse" />
-              </motion.div>
+                className="h-full bg-gradient-to-r from-blue-500 to-green-500"
+              />
+              <div className="absolute inset-0 bg-white opacity-20 animate-pulse" />
             </div>
             <AnimatePresence>
               {progress === 100 && (
