@@ -1315,29 +1315,16 @@ const PuzzleGame = () => {
             )}
 
             {/* Timer Display */}
-            {/* Fix the syntax error in the Timer Display section */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-white bg-gray-700/80 px-4 py-2 rounded-lg shadow-md">
-                <Clock className="w-4 h-4 text-blue-400" />
-                <span className="font-mono text-lg">{formatTime(timeElapsed)}</span>
-              </div>
-
-              {/* Add Difficulty Bar */}
-              <DifficultyBar
-                selectedDifficulty={selectedDifficulty}
-                onSelect={handleDifficultyChange}
-              />
-
-              {/* Game controls */}
-              {gameState !== 'initial' && (
-                <button
-                  onClick={togglePause}
-                  className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  {gameState === 'playing' ? <Pause /> : <Play />}
-                </button>
-              )}
+            <div className="flex items-center gap-2 text-white bg-gray-700/80 px-4 py-2 rounded-lg shadow-md"></div>
+              <Clock className="w-4 h-4 text-blue-400" />
+              <span className="font-mono text-lg">{formatTime(timeElapsed)}</span>
             </div>
+
+            {/* Add Difficulty Bar */}
+            <DifficultyBar
+              selectedDifficulty={selectedDifficulty}
+              onSelect={handleDifficultyChange}
+            />
 
             {/* Existing game controls */}
             {gameState !== 'initial' && (
