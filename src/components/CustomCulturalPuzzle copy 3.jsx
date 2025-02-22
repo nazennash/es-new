@@ -166,24 +166,25 @@ const puzzlePieceShader = {
     
     uniform vec2 uvOffset;
     uniform vec2 uvScale;
-    uniform float depth;
     uniform sampler2D heightMap;
+    uniform float extrusionScale;
     
     void main() {
       vUv = uvOffset + uv * uvScale;
       
       // Sample height map for displacement
-      vec4 heightValue = texture2D(heightMap, vUv);
-      float displacement = (heightValue.r + heightValue.g + heightValue.b) / 3.0;
+      vec4 heightColor = texture2D(heightMap, vUv);
+      float height = (heightColor.r + heightColor.g + heightColor.b) / 3.0;
       
-      // Create bas relief effect by moving vertices along their normals
-      vec3 newPosition = position + normal * displacement * depth;
+      // Create bas-relief effect by displacing vertices along normals
+      vec3 newPosition = position + normal * height * extrusionScale;
       
+      // Calculate view-space position and normal
       vec4 mvPosition = modelViewMatrix * vec4(newPosition, 1.0);
-      gl_Position = projectionMatrix * mvPosition;
-      
-      vViewPosition = -mvPosition.xyz;
+      vViewPosition = mvPosition.xyz;
       vNormal = normalMatrix * normal;
+      
+      gl_Position = projectionMatrix * mvPosition;
     }
   `,
   fragmentShader: `
@@ -200,24 +201,29 @@ const puzzlePieceShader = {
       vec4 texColor = texture2D(map, vUv);
       vec3 normal = normalize(vNormal);
       
-      // Enhanced lighting calculation for bas relief
-      vec3 viewDir = normalize(vViewPosition);
-      vec3 lightDir = normalize(vec3(5.0, 5.0, 5.0));
+      // Enhanced lighting setup for bas-relief
+      vec3 lightPos = vec3(5.0, 5.0, 5.0);
+      vec3 lightDir = normalize(lightPos - vViewPosition);
       
       // Ambient light
       float ambient = 0.3;
       
-      // Diffuse lighting
+      // Diffuse lighting with softer falloff
       float diff = max(dot(normal, lightDir), 0.0);
-      float diffuse = diff * 0.7;
+      diff = pow(diff, 0.8) * 0.7;
       
-      // Specular lighting for metallic effect
-      vec3 reflectDir = reflect(-lightDir, normal);
-      float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-      float specular = spec * 0.3;
+      // Specular highlights
+      vec3 viewDir = normalize(-vViewPosition);
+      vec3 halfDir = normalize(lightDir + viewDir);
+      float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+      spec *= 0.3;
+      
+      // Rim lighting for edge emphasis
+      float rimAmount = 0.7;
+      float rim = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.0) * rimAmount;
       
       // Combine lighting components
-      vec3 lighting = vec3(ambient + diffuse + specular);
+      vec3 lighting = vec3(ambient + diff + spec + rim);
       
       vec3 highlightColor = vec3(0.3, 0.6, 1.0);
       float highlightStrength = selected * 0.5 * (0.5 + 0.5 * sin(time * 3.0));
@@ -236,33 +242,30 @@ const puzzlePieceShader = {
 // 5. Helper functions (used within component)
 const handlePieceSnap = (piece, particleSystem) => {
   const originalPos = piece.userData.originalPosition;
-  const originalRot = piece.userData.originalRotation || new THREE.Euler(0, 0, 0);
-  const duration = 0.3;
+  const duration = 0.2; // Reduced duration for snappier feel
   const startPos = piece.position.clone();
   const startRot = piece.rotation.clone();
   const startTime = Date.now();
 
   const animate = () => {
     const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
-    const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+    const easeProgress = 1 - Math.pow(1 - progress, 4); // Quartic ease-out for snappier movement
 
-    // Position interpolation
+    // Snap position and rotation
     piece.position.lerpVectors(startPos, originalPos, easeProgress);
-
-    // Rotation interpolation
-    piece.rotation.x = THREE.MathUtils.lerp(startRot.x, originalRot.x, easeProgress);
-    piece.rotation.y = THREE.MathUtils.lerp(startRot.y, originalRot.y, easeProgress);
-    piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z, easeProgress);
+    piece.rotation.z = THREE.MathUtils.lerp(startRot.z, 0, easeProgress);
 
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      // Ensure final position and rotation are exact
+      // Ensure perfect alignment
       piece.position.copy(originalPos);
-      piece.rotation.copy(originalRot);
+      piece.rotation.set(0, 0, 0);
       if (particleSystem) {
         particleSystem.emit(piece.position, 30);
       }
+      // Play snap sound
+      soundRef.current?.play('place');
     }
   };
 
@@ -536,10 +539,10 @@ const PuzzleGame = () => {
         const material = new THREE.ShaderMaterial({
           uniforms: {
             map: { value: texture },
-            heightMap: { value: texture }, // Use the same texture for height map
+            heightMap: { value: texture },
             uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
             uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.2 }, // Adjust this value to control the depth of the relief
+            extrusionScale: { value: 0.55 },
             selected: { value: 0.0 },
             correctPosition: { value: 0.0 },
             time: { value: 0.0 }
@@ -755,45 +758,42 @@ const PuzzleGame = () => {
     };
 
     const handleMouseMove = (event) => {
-      // Prevent interaction if game is not in playing state
-      if (gameState !== 'playing') return;
+      if (gameState !== 'playing' || !isDragging || !selectedPieceRef.current) return;
 
-      if (!isDragging || !selectedPieceRef.current) return;
-
-      // Update mouse position
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      // Update the picking ray and find intersection with drag plane
       raycaster.setFromCamera(mouse, cameraRef.current);
       raycaster.ray.intersectPlane(dragPlane, intersection);
-
-      // Update piece position with offset
       selectedPieceRef.current.position.copy(intersection.add(offset));
 
-      // Rotation handling with shift key
-      if (event.shiftKey && selectedPieceRef.current) {
-        const deltaX = event.movementX * rotationSpeed;
-        selectedPieceRef.current.rotation.z = initialRotation + deltaX;
-      }
-
-      // Check distance to original position for snapping feedback
+      // Check distance to original position
       const originalPos = selectedPieceRef.current.userData.originalPosition;
       const distance = originalPos.distanceTo(selectedPieceRef.current.position);
-      const rotationDiff = Math.abs(selectedPieceRef.current.rotation.z % (Math.PI * 2));
+      
+      // Auto-snap when very close (reduced threshold)
+      if (distance < 0.2) { // Reduced snap distance threshold
+        handlePieceSnap(selectedPieceRef.current, particleSystemRef.current);
+        selectedPieceRef.current.userData.isPlaced = true;
+        setCompletedPieces(prev => {
+          const newCount = prev + 1;
+          setProgress((newCount / totalPieces) * 100);
+          return newCount;
+        });
+        handlePieceComplete(selectedPieceRef.current);
+        
+        // Reset dragging state
+        isDragging = false;
+        selectedPieceRef.current = null;
+        controlsRef.current.enabled = true;
+        return;
+      }
 
-      const isNearCorrectPosition = distance < 0.3;
-      const isNearCorrectRotation = rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2;
-
-      // Update shader feedback
+      // Update visual feedback
       if (selectedPieceRef.current.material.uniforms) {
-        if (isNearCorrectPosition && isNearCorrectRotation) {
-          selectedPieceRef.current.material.uniforms.correctPosition.value =
-            1.0 - (Math.max(distance / 0.3, rotationDiff / 0.2));
-        } else {
-          selectedPieceRef.current.material.uniforms.correctPosition.value = 0.0;
-        }
+        selectedPieceRef.current.material.uniforms.correctPosition.value = 
+          distance < 0.3 ? (1 - distance / 0.3) : 0;
       }
     };
 
