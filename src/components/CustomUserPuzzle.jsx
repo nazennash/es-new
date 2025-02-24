@@ -307,7 +307,7 @@ const PuzzleGame = () => {
   const puzzleContainerRef = useRef(null);
   const soundRef = useRef(null);
 
-  const defaultCameraPosition = { x: 0, y: 0, z: 5 };
+  const defaultCameraPosition = { x: 0, y: 0, z: 3 };
   const defaultControlsTarget = new THREE.Vector3(0, 0, 0);
 
   useEffect(() => {
@@ -397,14 +397,14 @@ const PuzzleGame = () => {
   // Camera controls
   const handleZoomIn = () => {
     if (cameraRef.current) {
-      const newZ = Math.max(cameraRef.current.position.z - 1, 2);
+      const newZ = Math.max(cameraRef.current.position.z - 1, 1);
       cameraRef.current.position.setZ(newZ);
     }
   };
 
   const handleZoomOut = () => {
     if (cameraRef.current) {
-      const newZ = Math.min(cameraRef.current.position.z + 1, 10);
+      const newZ = Math.min(cameraRef.current.position.z + 1, 8);
       cameraRef.current.position.setZ(newZ);
     }
   };
@@ -512,7 +512,7 @@ const PuzzleGame = () => {
             heightMap: { value: texture },
             uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
             uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.2 },
+            depth: { value: 0.5 },
             selected: { value: 0.0 },
             correctPosition: { value: 0.0 },
             time: { value: 0.0 }
@@ -540,7 +540,7 @@ const PuzzleGame = () => {
 
     // Adjust camera position for better view of larger pieces
     if (cameraRef.current) {
-      cameraRef.current.position.z = 6; // Moved camera back to show larger pieces
+      cameraRef.current.position.z = 4; // Moved camera back to show larger pieces
     }
 
     // Scramble pieces with wider distribution
@@ -597,8 +597,8 @@ const PuzzleGame = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 10;
-    controls.minDistance = 2;
+    controls.maxDistance = 8;
+    controls.minDistance = 1;
     controlsRef.current = controls;
 
     // Lighting

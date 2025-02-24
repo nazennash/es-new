@@ -356,7 +356,7 @@ const PuzzleGame = () => {
   const puzzleContainerRef = useRef(null);
   const soundRef = useRef(null);
 
-  const defaultCameraPosition = { x: 0, y: 0, z: 5 };
+  const defaultCameraPosition = { x: 0, y: 0, z: 3 };
   const defaultControlsTarget = new THREE.Vector3(0, 0, 0);
 
   // Helper functions
@@ -430,7 +430,7 @@ const PuzzleGame = () => {
 
   const handleZoomOut = () => {
     if (cameraRef.current) {
-      const newZ = Math.min(cameraRef.current.position.z + 1, 10);
+      const newZ = Math.min(cameraRef.current.position.z + 1, 8);
       cameraRef.current.position.setZ(newZ);
     }
   };
@@ -456,8 +456,8 @@ const PuzzleGame = () => {
     setIsTimerRunning(true);
 
     puzzlePiecesRef.current.forEach(piece => {
-      piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 2;
-      piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 2;
+      piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 3;
+      piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 3;
       piece.position.z = Math.random() * 0.5;
       piece.rotation.z = (Math.random() - 0.5) * 0.5;
       piece.userData.isPlaced = false;
@@ -512,7 +512,7 @@ const PuzzleGame = () => {
     const aspectRatio = texture.image.width / texture.image.height;
 
     // Adjust base size to be larger
-    const baseSize = 2.5; // Increased base size for better visibility
+    const baseSize = 1.5; // Increased base size for better visibility
 
     // Reduced grid size for larger pieces
     const gridSize = selectedDifficulty.grid; // Use selected difficulty grid size
@@ -539,7 +539,7 @@ const PuzzleGame = () => {
             heightMap: { value: texture }, // Use the same texture for height map
             uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
             uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.2 }, // Adjust this value to control the depth of the relief
+            depth: { value: 0.5 }, // Adjust this value to control the depth of the relief
             selected: { value: 0.0 },
             correctPosition: { value: 0.0 },
             time: { value: 0.0 }
@@ -567,7 +567,7 @@ const PuzzleGame = () => {
 
     // Adjust camera position for better view of larger pieces
     if (cameraRef.current) {
-      cameraRef.current.position.z = 7; // Moved camera back to show larger pieces
+      cameraRef.current.position.z = 4; // Moved camera back to show larger pieces
     }
 
     // Scramble pieces with wider distribution
@@ -623,7 +623,7 @@ const PuzzleGame = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 10;
+    controls.maxDistance = 6;
     controls.minDistance = 2;
     controlsRef.current = controls;
 
