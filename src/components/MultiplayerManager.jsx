@@ -704,7 +704,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     const height = containerRef.current.clientHeight;
 
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 5;
+    camera.position.z = 2;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
