@@ -54,6 +54,29 @@ const GRID_STYLE = {
   glowStrength: 0.5
 };
 
+// Add this function at the top level with other constants
+const calculateContainerLayout = (containerRef) => {
+  if (!containerRef.current) return CONTAINER_LAYOUT;
+
+  const width = containerRef.current.clientWidth;
+  const height = containerRef.current.clientHeight;
+  const aspectRatio = width / height;
+
+  // Adjust container positions based on screen size
+  return {
+    left: {
+      position: { x: -aspectRatio * 2.5, y: 0 },
+      dimensions: { width: aspectRatio * 1.2, height: height * 0.8 },
+      color: 0x2a2a2a
+    },
+    right: {
+      position: { x: aspectRatio * 2.5, y: 0 },
+      dimensions: { width: aspectRatio * 1.2, height: height * 0.8 },
+      color: 0x2a2a2a
+    }
+  };
+};
+
 // 3. Helper Classes
 class SoundSystem {
   constructor() {
@@ -342,19 +365,44 @@ const createPlacementGuides = (gridSize, pieceSize) => {
   }
 };
 
+// Modify the arrangePiecesInContainer function
 const arrangePiecesInContainer = (pieces, container, pieceSize) => {
-  const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2));
+  if (pieces.length === 0) return;
+
+  // Calculate optimal grid layout
+  const containerWidth = container.dimensions.width;
+  const containerHeight = container.dimensions.height;
+  const pieceAspectRatio = pieceSize.x / pieceSize.y;
+  
+  // Calculate optimal number of columns based on container size and piece size
+  const cols = Math.max(1, Math.floor(containerWidth / (pieceSize.x * 1.2)));
   const rows = Math.ceil(pieces.length / cols);
   
+  // Calculate spacing
+  const horizontalSpacing = containerWidth / cols;
+  const verticalSpacing = Math.min(
+    containerHeight / rows,
+    pieceSize.y * 1.5
+  );
+
   pieces.forEach((piece, index) => {
     const row = Math.floor(index / cols);
     const col = index % cols;
     
-    piece.position.x = container.position.x - container.dimensions.width/2 + 
-                      (col + 0.5) * (container.dimensions.width / cols);
-    piece.position.y = container.position.y + container.dimensions.height/2 - 
-                      (row + 0.5) * (container.dimensions.height / rows);
-    piece.position.z = 0.01;
+    // Center pieces within container
+    const x = container.position.x - (containerWidth / 2) + 
+              (col + 0.5) * horizontalSpacing;
+    const y = (containerHeight / 2) - 
+              (row + 0.5) * verticalSpacing;
+
+    // Add slight randomization to z-position for visual depth
+    const z = 0.01 + Math.random() * 0.02;
+
+    // Set piece position with smooth transition
+    piece.position.set(x, y, z);
+    
+    // Store container information in piece userData
+    piece.userData.containerId = container === CONTAINER_LAYOUT.left ? 'left' : 'right';
   });
 };
 
@@ -513,6 +561,7 @@ const PuzzleGame = () => {
     }
   };
 
+  // Modify the handleResetGame function
   const handleResetGame = () => {
     if (!sceneRef.current || !image) return;
 
@@ -520,28 +569,32 @@ const PuzzleGame = () => {
     setCompletedPieces(0);
     setProgress(0);
     setIsTimerRunning(true);
+    setGameState('playing');
 
-    // Reset pieces to their container positions while maintaining left/right distribution
-    const leftPieces = [];
-    const rightPieces = [];
+    const layout = calculateContainerLayout(containerRef);
+    const pieceSize = {
+      x: selectedDifficulty.grid.x * 0.1,
+      y: selectedDifficulty.grid.y * 0.1
+    };
 
+    // Reset each piece to its original container
     puzzlePiecesRef.current.forEach(piece => {
+      const containerId = piece.userData.containerId;
       piece.userData.isPlaced = false;
+      
       if (piece.material.uniforms) {
         piece.material.uniforms.correctPosition.value = 0;
-      }
-      
-      // Determine which container the piece belongs to based on current position
-      if (piece.position.x < 0) {
-        leftPieces.push(piece);
-      } else {
-        rightPieces.push(piece);
+        piece.material.uniforms.selected.value = 0;
       }
     });
 
+    // Separate pieces by container
+    const leftPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'left');
+    const rightPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'right');
+
     // Rearrange pieces in their respective containers
-    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+    arrangePiecesInContainer(leftPieces, layout.left, pieceSize);
+    arrangePiecesInContainer(rightPieces, layout.right, pieceSize);
 
     handleResetView();
   };
@@ -622,6 +675,7 @@ const PuzzleGame = () => {
   };
 
   // Create puzzle pieces
+  // Update the createPuzzlePieces function to use the new container layout
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
 
@@ -702,15 +756,21 @@ const PuzzleGame = () => {
       }
     }
 
+    const layout = calculateContainerLayout(containerRef);
+    
     // Distribute pieces between containers
     const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
     const halfLength = Math.ceil(shuffledPieces.length / 2);
     const leftPieces = shuffledPieces.slice(0, halfLength);
     const rightPieces = shuffledPieces.slice(halfLength);
 
+    // Set initial container assignment
+    leftPieces.forEach(piece => piece.userData.containerId = 'left');
+    rightPieces.forEach(piece => piece.userData.containerId = 'right');
+
     // Arrange pieces in containers
-    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+    arrangePiecesInContainer(leftPieces, layout.left, pieceSize);
+    arrangePiecesInContainer(rightPieces, layout.right, pieceSize);
 
     // Add all pieces to scene and reference array
     pieces.forEach(piece => {
@@ -1441,6 +1501,43 @@ const PuzzleGame = () => {
       </div>
     </div>
   );
+
+  // Add window resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      if (!containerRef.current || !rendererRef.current) return;
+
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+
+      // Update camera
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+
+      // Update renderer
+      rendererRef.current.setSize(width, height);
+
+      // Recalculate container layout
+      const layout = calculateContainerLayout(containerRef);
+      
+      // Update piece positions if game is in progress
+      if (gameState !== 'initial' && puzzlePiecesRef.current.length > 0) {
+        const pieceSize = {
+          x: selectedDifficulty.grid.x * 0.1,
+          y: selectedDifficulty.grid.y * 0.1
+        };
+
+        const leftPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'left');
+        const rightPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'right');
+
+        arrangePiecesInContainer(leftPieces, layout.left, pieceSize);
+        arrangePiecesInContainer(rightPieces, layout.right, pieceSize);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [gameState, selectedDifficulty]);
 
   return (
     <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
