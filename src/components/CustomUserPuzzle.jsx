@@ -35,13 +35,13 @@ const ACHIEVEMENTS = [
 
 const CONTAINER_LAYOUT = {
   left: {
-    position: { x: -5, y: 0 },
-    dimensions: { width: 3, height: 5 },
+    position: { x: -4, y: 0 }, // Moved closer to center
+    dimensions: { width: 2.5, height: 4 }, // Adjusted size
     color: 0x2a2a2a
   },
   right: {
-    position: { x: 5, y: 0 },
-    dimensions: { width: 3, height: 5 },
+    position: { x: 4, y: 0 }, // Moved closer to center
+    dimensions: { width: 2.5, height: 4 }, // Adjusted size
     color: 0x2a2a2a
   }
 };
@@ -65,13 +65,13 @@ const calculateContainerLayout = (containerRef) => {
   // Adjust container positions based on screen size
   return {
     left: {
-      position: { x: -aspectRatio * 2.5, y: 0 },
-      dimensions: { width: aspectRatio * 1.2, height: height * 0.8 },
+      position: { x: -aspectRatio * 1.5, y: 0 }, // Adjusted multiplier
+      dimensions: { width: aspectRatio * 0.8, height: height * 0.6 },
       color: 0x2a2a2a
     },
     right: {
-      position: { x: aspectRatio * 2.5, y: 0 },
-      dimensions: { width: aspectRatio * 1.2, height: height * 0.8 },
+      position: { x: aspectRatio * 1.5, y: 0 }, // Adjusted multiplier
+      dimensions: { width: aspectRatio * 0.8, height: height * 0.6 },
       color: 0x2a2a2a
     }
   };
@@ -706,7 +706,7 @@ const PuzzleGame = () => {
 
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const aspectRatio = texture.image.width / texture.image.height;
-    const baseSize = 3.5;
+    const baseSize = 2.5; // Reduced from 3.5
     const gridSize = selectedDifficulty.grid;
     const pieceSize = {
       x: (baseSize * aspectRatio) / gridSize.x,
@@ -796,7 +796,8 @@ const PuzzleGame = () => {
       0.1,
       1000
     );
-    camera.position.z = 5;
+    camera.position.set(0, 0, 6); // Changed from 5 to 6 for better view
+    camera.updateProjectionMatrix();
     cameraRef.current = camera;
 
     // Renderer setup
@@ -824,8 +825,13 @@ const PuzzleGame = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 8;
-    controls.minDistance = 1;
+    controls.maxDistance = 10; // Increased from 8
+    controls.minDistance = 2; // Increased from 1
+    controls.enableRotate = true;
+    controls.enablePan = true;
+    controls.panSpeed = 0.5;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.5;
     controlsRef.current = controls;
 
     // Lighting
