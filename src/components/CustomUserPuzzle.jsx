@@ -521,18 +521,46 @@ const PuzzleGame = () => {
     setProgress(0);
     setIsTimerRunning(true);
 
+    // Reset pieces to their container positions while maintaining left/right distribution
+    const leftPieces = [];
+    const rightPieces = [];
+
     puzzlePiecesRef.current.forEach(piece => {
-      piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 2;
-      piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 2;
-      piece.position.z = Math.random() * 0.5;
-      piece.rotation.z = (Math.random() - 0.5) * 0.5;
       piece.userData.isPlaced = false;
       if (piece.material.uniforms) {
         piece.material.uniforms.correctPosition.value = 0;
       }
+      
+      // Determine which container the piece belongs to based on current position
+      if (piece.position.x < 0) {
+        leftPieces.push(piece);
+      } else {
+        rightPieces.push(piece);
+      }
     });
 
+    // Rearrange pieces in their respective containers
+    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+
     handleResetView();
+  };
+
+  const replayPuzzle = () => {
+    if (!image) return;
+    
+    setLoading(true);
+    createPuzzlePieces(image).then(() => {
+      setLoading(false);
+      setGameState('playing');
+      setIsTimerRunning(true);
+      setCompletedPieces(0);
+      setProgress(0);
+      setTimeElapsed(0);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    });
   };
 
   // Create placement guides
@@ -1508,11 +1536,17 @@ const PuzzleGame = () => {
           <button
             onClick={handleResetGame}
             className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Reset Puzzle"
+            title="Reset Positions"
           >
             <RotateCcw className="w-5 h-5" />
           </button>
-          <div className="w-full h-px bg-gray-700 my-1" />
+          <button
+            onClick={replayPuzzle}
+            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+            title="New Game"
+          >
+            <Play className="w-5 h-5" />
+          </button>
           <button
             onClick={() => setShowThumbnail(!showThumbnail)}
             className={`p-2 text-white rounded transition-colors ${showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'}`}
