@@ -9,14 +9,14 @@ const difficulties = [
 
 const DifficultyBar = ({ selectedDifficulty, onSelect, className }) => {
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 bg-gray-700/50 rounded-lg ${className}`}>
-      <span className="text-gray-400 text-sm">Difficulty:</span>
-      <div className="flex gap-1">
+    <div className={`flex flex-col sm:flex-row items-center gap-2 px-2 sm:px-1 py-2 bg-gray-700/50 rounded-lg ${className}`}>
+      <span className="text-gray-400 text-sm whitespace-nowrap">Difficulty:</span>
+      <div className="flex flex-wrap justify-center gap-1 w-full">
         {difficulties.map((diff) => (
           <button
             key={diff.id}
             onClick={() => onSelect(diff)}
-            className={`px-3 py-1 rounded text-sm font-medium transition-all
+            className={`min-w-[80px] px-2 sm:px-3 py-1 rounded text-sm font-medium transition-all
               ${selectedDifficulty?.id === diff.id
                 ? `${diff.color} text-white scale-105`
                 : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}
@@ -24,7 +24,6 @@ const DifficultyBar = ({ selectedDifficulty, onSelect, className }) => {
             {diff.label}
           </button>
         ))}
-        <span></span>
       </div>
     </div>
   );

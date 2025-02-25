@@ -444,7 +444,7 @@ const PuzzleGame = () => {
 
   useEffect(() => {
     const checkPuzzleCreationLimit = async () => {
-      if (isPremium) return; // Premium users have no limits
+      if (isPremium || !isPremium) return; // Premium users have no limits
 
       const db = getFirestore();
       const puzzlesRef = collection(db, 'completed_puzzles');
