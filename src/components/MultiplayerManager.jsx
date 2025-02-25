@@ -92,6 +92,27 @@ const PUZZLE_TYPES = {
   }
 };
 
+const CONTAINER_LAYOUT = {
+  left: {
+    position: { x: -5, y: 0 },
+    dimensions: { width: 3, height: 5 },
+    color: 0x2a2a2a
+  },
+  right: {
+    position: { x: 5, y: 0 },
+    dimensions: { width: 3, height: 5 },
+    color: 0x2a2a2a
+  }
+};
+
+const GRID_STYLE = {
+  primaryColor: 0x4a90e2,
+  secondaryColor: 0x2c5282,
+  lineWidth: 2,
+  opacity: 0.6,
+  glowStrength: 0.5
+};
+
 // 3. Shaders
 const puzzlePieceShader = {
   vertexShader: `
@@ -852,10 +873,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       const moveTime = Date.now() - moveStartTime;
 
       if (distance < DIFFICULTY_SETTINGS[difficulty].snapDistance && !piece.userData.isPlaced) {
-        piece.position.copy(originalPos);
-        piece.rotation.z = 0;
-        piece.userData.isPlaced = true;
-        piece.material.uniforms.correctPosition.value = 1.0;
+        handlePieceSnap(piece, particleSystemRef.current);
         
         let pointsEarned = POINTS.ACCURATE_PLACEMENT;
         if (moveTime < 5000) pointsEarned += POINTS.QUICK_PLACEMENT;
@@ -887,9 +905,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
           }
           return newCount;
         });
-
-        const color = new THREE.Color(0x00ff00);
-        particleSystemRef.current.emit(piece.position, 30, color);
 
         updatePiecePosition(piece.userData.id, {
           x: originalPos.x,
