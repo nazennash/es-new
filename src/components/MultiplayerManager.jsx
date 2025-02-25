@@ -608,17 +608,38 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
-
+  
+    // Clear existing pieces
     puzzlePiecesRef.current.forEach(piece => {
       if (piece.geometry) piece.geometry.dispose();
       if (piece.material) piece.material.dispose();
       if (piece.parent) piece.parent.remove(piece);
     });
     puzzlePiecesRef.current = [];
-
+  
+    // Create containers first
+    Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
+      const containerGeometry = new THREE.PlaneGeometry(
+        layout.dimensions.width,
+        layout.dimensions.height
+      );
+      const containerMaterial = new THREE.MeshBasicMaterial({
+        color: layout.color,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+      });
+      const container = new THREE.Mesh(containerGeometry, containerMaterial);
+      container.position.set(layout.position.x, layout.position.y, -0.1);
+      container.userData.isContainer = true;
+      container.userData.side = side;
+      sceneRef.current.add(container);
+    });
+  
     try {
       const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
       const settings = DIFFICULTY_SETTINGS[difficulty];
+      const pieces = [];
       
       const pieceWidth = 1 / settings.grid.x;
       const pieceHeight = 1 / settings.grid.y;
@@ -642,27 +663,40 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
             fragmentShader: puzzlePieceShader.fragmentShader,
             transparent: true
           });
-
+  
           const piece = new THREE.Mesh(geometry, material);
           const originalX = (x - settings.grid.x / 2 + 0.5) * pieceWidth;
           const originalY = (y - settings.grid.y / 2 + 0.5) * pieceHeight;
-          piece.position.set(originalX, originalY, 0);
           
           piece.userData = {
             id: `piece_${x}_${y}`,
-            originalPosition: piece.position.clone(),
+            originalPosition: new THREE.Vector3(originalX, originalY, 0),
             gridPosition: { x, y },
             isPlaced: false
           };
-
-          sceneRef.current.add(piece);
-          puzzlePiecesRef.current.push(piece);
+  
+          pieces.push(piece);
         }
       }
-
+  
+      // Distribute pieces between containers
+      const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
+      const halfLength = Math.ceil(shuffledPieces.length / 2);
+      const leftPieces = shuffledPieces.slice(0, halfLength);
+      const rightPieces = shuffledPieces.slice(halfLength);
+  
+      // Arrange pieces in containers
+      arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, { x: pieceWidth, y: pieceHeight });
+      arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, { x: pieceWidth, y: pieceHeight });
+  
+      // Add all pieces to scene
+      pieces.forEach(piece => {
+        sceneRef.current.add(piece);
+        puzzlePiecesRef.current.push(piece);
+      });
+  
       setTotalPieces(settings.grid.x * settings.grid.y);
       createPlacementGuides(settings.grid, { x: pieceWidth, y: pieceHeight });
-      scramblePieces();
       setLoading(false);
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);
@@ -670,6 +704,33 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       setLoading(false);
     }
   };
+  
+  // Update the arrangePiecesInContainer function
+  const arrangePiecesInContainer = (pieces, container, pieceSize) => {
+    const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2));
+    const rows = Math.ceil(pieces.length / cols);
+    
+    pieces.forEach((piece, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      
+      piece.position.x = container.position.x - container.dimensions.width/2 + 
+                        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height/2 - 
+                        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.z = 0.01;
+      
+      // Sync initial position with other players
+      updatePiecePosition(piece.userData.id, {
+        x: piece.position.x,
+        y: piece.position.y,
+        z: piece.position.z,
+        rotation: piece.rotation.z,
+        isPlaced: false
+      });
+    });
+  };
+  
 
   // Event handlers
   const handleGameCompletion = async () => {
