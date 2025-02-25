@@ -35,13 +35,13 @@ const ACHIEVEMENTS = [
 
 const CONTAINER_LAYOUT = {
   left: {
-    position: { x: -5, y: 0 },
-    dimensions: { width: 3, height: 5 },
+    position: { x: -3.5, y: 0 },
+    dimensions: { width: 2, height: 4 },
     color: 0x2a2a2a
   },
   right: {
-    position: { x: 5, y: 0 },
-    dimensions: { width: 3, height: 5 },
+    position: { x: 3.5, y: 0 },
+    dimensions: { width: 2, height: 4 },
     color: 0x2a2a2a
   }
 };
@@ -358,6 +358,40 @@ const arrangePiecesInContainer = (pieces, container, pieceSize) => {
   });
 };
 
+const calculateResponsiveLayout = (container) => {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const aspectRatio = width / height;
+  const isMobile = width < 768;
+
+  return {
+    camera: {
+      position: { x: 0, y: 0, z: isMobile ? 8 : 6 },
+      fov: isMobile ? 85 : 75
+    },
+    containers: {
+      left: {
+        position: { x: isMobile ? -2.5 : -3.5, y: isMobile ? 2 : 0 },
+        dimensions: { 
+          width: isMobile ? 1.5 : 2,
+          height: isMobile ? 3 : 4
+        }
+      },
+      right: {
+        position: { x: isMobile ? 2.5 : 3.5, y: isMobile ? 2 : 0 },
+        dimensions: {
+          width: isMobile ? 1.5 : 2,
+          height: isMobile ? 3 : 4
+        }
+      }
+    },
+    pieces: {
+      baseSize: isMobile ? 2 : 2.5,
+      scale: isMobile ? 0.8 : 1
+    }
+  };
+};
+
 // 6. Main Component
 const PuzzleGame = () => {
   const navigate = useNavigate();
@@ -382,6 +416,7 @@ const PuzzleGame = () => {
   const [gameId, setGameId] = useState(null);
   const [completedAchievements, setCompletedAchievements] = useState([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState(difficulties[0]);
+  const [layout, setLayout] = useState(null);
 
   // Refs
   const containerRef = useRef(null);
@@ -1442,66 +1477,114 @@ const PuzzleGame = () => {
     </div>
   );
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const handleResize = () => {
+      const newLayout = calculateResponsiveLayout(containerRef.current);
+      setLayout(newLayout);
+
+      if (cameraRef.current) {
+        cameraRef.current.position.set(
+          newLayout.camera.position.x,
+          newLayout.camera.position.y,
+          newLayout.camera.position.z
+        );
+        cameraRef.current.fov = newLayout.camera.fov;
+        cameraRef.current.updateProjectionMatrix();
+      }
+
+      if (rendererRef.current) {
+        rendererRef.current.setSize(
+          containerRef.current.clientWidth,
+          containerRef.current.clientHeight
+        );
+      }
+
+      // Update piece positions if they exist
+      if (puzzlePiecesRef.current.length > 0) {
+        const leftPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'left');
+        const rightPieces = puzzlePiecesRef.current.filter(p => p.userData.containerId === 'right');
+
+        arrangePiecesInContainer(leftPieces, {
+          ...CONTAINER_LAYOUT.left,
+          ...newLayout.containers.left
+        }, calculatePieceSize(newLayout));
+        
+        arrangePiecesInContainer(rightPieces, {
+          ...CONTAINER_LAYOUT.right,
+          ...newLayout.containers.right
+        }, calculatePieceSize(newLayout));
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Top Navigation Bar */}
-      <div className="px-6 py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {/* Logo/Title */}
-          <h1 className="text-2xl font-bold text-white">Custom Puzzle</h1>
+      <div className="px-2 sm:px-6 py-2 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            {/* Logo/Title */}
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Custom Puzzle</h1>
 
-          {/* Game Controls */}
-          <div className="flex items-center gap-2">
-            <label
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
-            >
-              <Camera className="w-4 h-4" />
-              <span>Upload Image</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
+            {/* Game Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
+                <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Upload Image</span>
+                <span className="sm:hidden">Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <DifficultyBar
+                selectedDifficulty={selectedDifficulty}
+                onSelect={handleDifficultyChange}
+                className="scale-90 sm:scale-100"
               />
-            </label>
 
-            <DifficultyBar
-              selectedDifficulty={selectedDifficulty}
-              onSelect={handleDifficultyChange}
-            />
+              {gameState !== 'initial' && (
+                <button
+                  onClick={togglePause}
+                  className="p-1.5 sm:p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  {gameState === 'playing' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </button>
+              )}
+            </div>
+          </div>
 
-            {gameState !== 'initial' && (
-              <button
-                onClick={togglePause}
-                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                {gameState === 'playing' ? <Pause /> : <Play />}
-              </button>
+          {/* Game Stats */}
+          <div className="flex items-center gap-3 sm:gap-6">
+            <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+              <span className="text-white font-mono text-sm sm:text-base">{formatTime(timeElapsed)}</span>
+            </div>
+
+            {totalPieces > 0 && (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="hidden sm:block text-sm text-gray-400">Progress</div>
+                <div className="w-20 sm:w-40 h-1.5 sm:h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="text-white font-medium text-sm sm:text-base">
+                  {Math.round(progress)}%
+                </div>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Game Stats */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
-            <Clock className="w-4 h-4 text-blue-400" />
-            <span className="text-white font-mono">{formatTime(timeElapsed)}</span>
-          </div>
-
-          {totalPieces > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-gray-400">Progress</div>
-              <div className="w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="text-white font-medium">
-                {Math.round(progress)}%
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1510,7 +1593,7 @@ const PuzzleGame = () => {
         <div ref={containerRef} className="w-full h-full" />
 
         {/* Side Controls */}
-        <div className="absolute right-6 top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
+        <div className="absolute right-2 sm:right-6 top-2 sm:top-6 flex flex-col gap-1 sm:gap-2 bg-gray-800/90 backdrop-blur-sm p-1 sm:p-2 rounded-lg scale-75 sm:scale-100">
           <button
             onClick={handleZoomIn}
             className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
@@ -1558,11 +1641,11 @@ const PuzzleGame = () => {
 
         {/* Reference Image */}
         {showThumbnail && image && (
-          <div className="absolute left-6 top-6 p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
+          <div className="absolute left-2 sm:left-6 top-2 sm:top-6 p-2 sm:p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
             <img
               src={image}
               alt="Reference"
-              className="w-48 h-auto rounded border border-gray-700"
+              className="w-32 sm:w-48 h-auto rounded border border-gray-700"
             />
           </div>
         )}
@@ -1570,9 +1653,9 @@ const PuzzleGame = () => {
         {/* Loading Overlay */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <div className="text-xl text-white font-medium">Loading puzzle...</div>
+            <div className="flex flex-col items-center gap-3 sm:gap-4 px-4 text-center">
+              <div className="w-8 h-8 sm:w-12 sm:h-12 border-3 sm:border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="text-base sm:text-xl text-white font-medium">Loading puzzle...</div>
             </div>
           </div>
         )}
