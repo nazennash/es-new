@@ -244,6 +244,19 @@ class ParticleSystem {
     this.updateGeometry();
   }
 
+  emitMultiple(particles) {
+    particles.forEach(particle => {
+      this.particles.push({
+        position: particle.position.clone(),
+        velocity: particle.velocity.clone(),
+        color: particle.color.clone(),
+        size: 0.05 + Math.random() * 0.05,
+        life: 1.0
+      });
+    });
+    this.updateGeometry();
+  }
+
   update(deltaTime) {
     this.particles = this.particles.filter(particle => {
       particle.life -= deltaTime * 0.5;
@@ -276,6 +289,18 @@ class ParticleSystem {
     this.particleSystem.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
   }
 }
+
+// Add setupCamera function after constants
+const setupCamera = (puzzleType) => {
+  if (!cameraRef.current || !controlsRef.current) return;
+  
+  const settings = PUZZLE_TYPES[puzzleType];
+  if (!settings) return;
+
+  cameraRef.current.position.copy(settings.cameraPosition);
+  controlsRef.current.target.set(0, 0, 0);
+  controlsRef.current.update();
+};
 
 // 5. Component Functions
 const DifficultyMenu = ({ current, onChange, isHost }) => (
@@ -638,16 +663,24 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   
     try {
       const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
+      const aspectRatio = texture.image.width / texture.image.height;
+      const baseSize = 3.5;
       const settings = DIFFICULTY_SETTINGS[difficulty];
+      const pieceSize = {
+        x: (baseSize * aspectRatio) / settings.grid.x,
+        y: baseSize / settings.grid.y
+      };
+  
       const pieces = [];
-      
-      const pieceWidth = 1 / settings.grid.x;
-      const pieceHeight = 1 / settings.grid.y;
-      
       for (let y = 0; y < settings.grid.y; y++) {
         for (let x = 0; x < settings.grid.x; x++) {
-          const geometry = new THREE.PlaneGeometry(pieceWidth * 0.95, pieceHeight * 0.95, 32, 32);
-          
+          const geometry = new THREE.PlaneGeometry(
+            pieceSize.x * 0.98,
+            pieceSize.y * 0.98,
+            32,
+            32
+          );
+  
           const material = new THREE.ShaderMaterial({
             uniforms: {
               map: { value: texture },
@@ -661,19 +694,20 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
             },
             vertexShader: puzzlePieceShader.vertexShader,
             fragmentShader: puzzlePieceShader.fragmentShader,
-            transparent: true
+            side: THREE.DoubleSide
           });
   
           const piece = new THREE.Mesh(geometry, material);
-          const originalX = (x - settings.grid.x / 2 + 0.5) * pieceWidth;
-          const originalY = (y - settings.grid.y / 2 + 0.5) * pieceHeight;
           
-          piece.userData = {
-            id: `piece_${x}_${y}`,
-            originalPosition: new THREE.Vector3(originalX, originalY, 0),
-            gridPosition: { x, y },
-            isPlaced: false
-          };
+          // Store original position for snapping
+          piece.userData.originalPosition = new THREE.Vector3(
+            (x - (settings.grid.x - 1) / 2) * pieceSize.x,
+            (y - (settings.grid.y - 1) / 2) * pieceSize.y,
+            0
+          );
+          piece.userData.gridPosition = { x, y };
+          piece.userData.id = `piece_${x}_${y}`;
+          piece.userData.isPlaced = false;
   
           pieces.push(piece);
         }
@@ -686,17 +720,24 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       const rightPieces = shuffledPieces.slice(halfLength);
   
       // Arrange pieces in containers
-      arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, { x: pieceWidth, y: pieceHeight });
-      arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, { x: pieceWidth, y: pieceHeight });
+      arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+      arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
   
-      // Add all pieces to scene
+      // Add all pieces to scene and synchronize with other players
       pieces.forEach(piece => {
         sceneRef.current.add(piece);
         puzzlePiecesRef.current.push(piece);
+        syncPieceState(piece.userData.id, {
+          x: piece.position.x,
+          y: piece.position.y,
+          z: piece.position.z,
+          rotation: piece.rotation.z,
+          isPlaced: false
+        });
       });
   
       setTotalPieces(settings.grid.x * settings.grid.y);
-      createPlacementGuides(settings.grid, { x: pieceWidth, y: pieceHeight });
+      createPlacementGuides(settings.grid, pieceSize);
       setLoading(false);
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);
@@ -705,33 +746,135 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     }
   };
   
-  // Update the arrangePiecesInContainer function
-  const arrangePiecesInContainer = (pieces, container, pieceSize) => {
-    const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2));
-    const rows = Math.ceil(pieces.length / cols);
+  // const createPlacementGuides = (gridSize, pieceSize) => {
+  //   guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
+  //   guideOutlinesRef.current = [];
+  
+  //   // Create main grid container
+  //   const gridWidth = gridSize.x * pieceSize.x;
+  //   const gridHeight = gridSize.y * pieceSize.y;
     
-    pieces.forEach((piece, index) => {
-      const row = Math.floor(index / cols);
-      const col = index % cols;
-      
-      piece.position.x = container.position.x - container.dimensions.width/2 + 
-                        (col + 0.5) * (container.dimensions.width / cols);
-      piece.position.y = container.position.y + container.dimensions.height/2 - 
-                        (row + 0.5) * (container.dimensions.height / rows);
-      piece.position.z = 0.01;
-      
-      // Sync initial position with other players
-      updatePiecePosition(piece.userData.id, {
-        x: piece.position.x,
-        y: piece.position.y,
-        z: piece.position.z,
-        rotation: piece.rotation.z,
-        isPlaced: false
-      });
-    });
+  //   // Create background plane for entire grid
+  //   const gridBackground = new THREE.Mesh(
+  //     new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
+  //     new THREE.MeshBasicMaterial({
+  //       color: GRID_STYLE.secondaryColor,
+  //       transparent: true,
+  //       opacity: 0.2
+  //     })
+  //   );
+  //   gridBackground.position.z = -0.02;
+  //   sceneRef.current.add(gridBackground);
+  //   guideOutlinesRef.current.push(gridBackground);
+  
+  //   // Create individual cell outlines
+  //   for (let y = 0; y < gridSize.y; y++) {
+  //     for (let x = 0; x < gridSize.x; x++) {
+  //       // Create cell background with alternating colors
+  //       const isAlternate = (x + y) % 2 === 0;
+  //       const cellGeometry = new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98);
+  //       const cellMaterial = new THREE.MeshBasicMaterial({
+  //         color: isAlternate ? GRID_STYLE.primaryColor : GRID_STYLE.secondaryColor,
+  //         transparent: true,
+  //         opacity: 0.15
+  //       });
+  //       const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+  
+  //       // Position the cell
+  //       cell.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
+  //       cell.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
+  //       cell.position.z = -0.015;
+  
+  //       sceneRef.current.add(cell);
+  //       guideOutlinesRef.current.push(cell);
+  
+  //       // Create cell outline
+  //       const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
+  //       const outlineMaterial = new THREE.LineBasicMaterial({
+  //         color: GRID_STYLE.primaryColor,
+  //         transparent: true,
+  //         opacity: GRID_STYLE.opacity,
+  //         linewidth: GRID_STYLE.lineWidth
+  //       });
+  //       const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
+  //       outline.position.copy(cell.position);
+  //       outline.position.z = -0.01;
+  
+  //       sceneRef.current.add(outline);
+  //       guideOutlinesRef.current.push(outline);
+  //     }
+  //   }
+  // };
+  
+  const handlePieceSnap = (piece, particleSystem) => {
+    const originalPos = piece.userData.originalPosition;
+    const originalRot = new THREE.Euler(0, 0, 0);
+    const duration = 0.3;
+    const startPos = piece.position.clone();
+    const startRot = piece.rotation.clone();
+    const startTime = Date.now();
+  
+    // Play snap sound and show particles before animation
+    if (particleSystem) {
+      particleSystem.emit(piece.position, 30, new THREE.Color(0x4a90e2));
+    }
+  
+    const animate = () => {
+      const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+  
+      // Position interpolation
+      piece.position.lerpVectors(startPos, originalPos, easeProgress);
+  
+      // Rotation interpolation
+      piece.rotation.x = THREE.MathUtils.lerp(startRot.x, originalRot.x, easeProgress);
+      piece.rotation.y = THREE.MathUtils.lerp(startRot.y, originalRot.y, easeProgress);
+      piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z, easeProgress);
+  
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Ensure final position and rotation are exact
+        piece.position.copy(originalPos);
+        piece.rotation.copy(originalRot);
+        
+        // Update piece state
+        piece.userData.isPlaced = true;
+        piece.material.uniforms.correctPosition.value = 1.0;
+        
+        // Sync final state with other players
+        syncPieceState(piece.userData.id, {
+          x: originalPos.x,
+          y: originalPos.y,
+          z: originalPos.z,
+          rotation: 0,
+          isPlaced: true
+        });
+  
+        // Update completion progress
+        setCompletedPieces(prev => {
+          const newCount = prev + 1;
+          const newProgress = (newCount / totalPieces) * 100;
+          setProgress(newProgress);
+          updateProgress(newProgress);
+          
+          // Check for puzzle completion
+          if (newProgress === 100) {
+            handleGameCompletion();
+          }
+          return newCount;
+        });
+  
+        // Show completion particles
+        if (particleSystem) {
+          particleSystem.emit(piece.position, 20, new THREE.Color(0x00ff00));
+        }
+      }
+    };
+  
+    animate();
   };
   
-
   // Event handlers
   const handleGameCompletion = async () => {
     const endTime = Date.now();
@@ -902,89 +1045,81 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     };
 
     const onMouseMove = (event) => {
-      if (!isDragging || !selectedPieceRef.current) return;
+      if (!isDragging || !selectedPieceRef.current || !isPlaying) return;
 
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
+    
       raycaster.setFromCamera(mouse, cameraRef.current);
       const intersectPoint = new THREE.Vector3();
       raycaster.ray.intersectPlane(
         new THREE.Plane(new THREE.Vector3(0, 0, 1)),
         intersectPoint
       );
-
+    
+      // Update piece position
       selectedPieceRef.current.position.copy(intersectPoint);
       
+      // Sync position with other players
       updatePiecePosition(selectedPieceRef.current.userData.id, {
         x: intersectPoint.x,
         y: intersectPoint.y,
         z: intersectPoint.z,
-        rotation: selectedPieceRef.current.rotation.z
+        rotation: selectedPieceRef.current.rotation.z,
+        lastUpdatedBy: user.uid
       });
+    
+      // Check for snapping preview
+      const originalPos = selectedPieceRef.current.userData.originalPosition;
+      const distance = originalPos.distanceTo(selectedPieceRef.current.position);
+      const rotationDiff = Math.abs(selectedPieceRef.current.rotation.z % (Math.PI * 2));
+    
+      // Update shader feedback
+      if (selectedPieceRef.current.material.uniforms) {
+        const isNearCorrect = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance &&
+                             (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled || 
+                              rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
+        
+        selectedPieceRef.current.material.uniforms.correctPosition.value = 
+          isNearCorrect ? 0.5 : 0.0;
+      }
     };
-
+    
     const onMouseUp = () => {
       if (!selectedPieceRef.current) return;
-
+    
       const piece = selectedPieceRef.current;
       const originalPos = piece.userData.originalPosition;
       const distance = originalPos.distanceTo(piece.position);
-      const moveTime = Date.now() - moveStartTime;
-
-      if (distance < DIFFICULTY_SETTINGS[difficulty].snapDistance && !piece.userData.isPlaced) {
+      const rotationDiff = Math.abs(piece.rotation.z % (Math.PI * 2));
+    
+      const isNearCorrectPosition = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance;
+      const isNearCorrectRotation = rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2;
+    
+      if (isNearCorrectPosition && isNearCorrectRotation && !piece.userData.isPlaced) {
         handlePieceSnap(piece, particleSystemRef.current);
+        piece.userData.isPlaced = true;
         
-        let pointsEarned = POINTS.ACCURATE_PLACEMENT;
-        if (moveTime < 5000) pointsEarned += POINTS.QUICK_PLACEMENT;
-        
-        const timeSinceLastPlacement = Date.now() - lastPlacementTimeRef.current;
-        if (timeSinceLastPlacement < 3000) {
-          comboCountRef.current++;
-          pointsEarned += POINTS.COMBO * comboCountRef.current;
-        } else {
-          comboCountRef.current = 0;
-        }
-        lastPlacementTimeRef.current = Date.now();
-
-        setGameStats(prev => ({
-          ...prev,
-          accurateDrops: prev.accurateDrops + 1,
-          points: prev.points + pointsEarned,
-          combos: Math.max(prev.combos, comboCountRef.current)
-        }));
-
         setCompletedPieces(prev => {
           const newCount = prev + 1;
           const newProgress = (newCount / totalPieces) * 100;
           setProgress(newProgress);
           updateProgress(newProgress);
-          
-          if (newProgress === 100) {
-            handleGameCompletion();
-          }
           return newCount;
         });
-
-        updatePiecePosition(piece.userData.id, {
-          x: originalPos.x,
-          y: originalPos.y,
-          z: originalPos.z,
-          rotation: 0,
-          isPlaced: true
-        });
-      } else {
-        comboCountRef.current = 0;
-        const color = new THREE.Color(0xff0000);
-        particleSystemRef.current.emit(piece.position, 10, color);
       }
-
-      piece.material.uniforms.selected.value = 0.0;
+    
+      // Reset piece state
+      if (piece.material.uniforms) {
+        piece.material.uniforms.selected.value = 0.0;
+        piece.material.uniforms.correctPosition.value = piece.userData.isPlaced ? 1.0 : 0.0;
+      }
+    
       selectedPieceRef.current = null;
-      isDragging = false;
       controlsRef.current.enabled = true;
     };
+    
 
     const element = rendererRef.current.domElement;
     element.addEventListener('mousedown', onMouseDown);
@@ -1004,19 +1139,54 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
     guideOutlinesRef.current = [];
 
+    // Create main grid container
+    const gridWidth = gridSize.x * pieceSize.x;
+    const gridHeight = gridSize.y * pieceSize.y;
+    
+    // Create background plane for entire grid
+    const gridBackground = new THREE.Mesh(
+      new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
+      new THREE.MeshBasicMaterial({
+        color: GRID_STYLE.secondaryColor,
+        transparent: true,
+        opacity: 0.2
+      })
+    );
+    gridBackground.position.z = -0.02;
+    sceneRef.current.add(gridBackground);
+    guideOutlinesRef.current.push(gridBackground);
+
+    // Create individual cell outlines
     for (let y = 0; y < gridSize.y; y++) {
       for (let x = 0; x < gridSize.x; x++) {
-        const outlineGeometry = new THREE.EdgesGeometry(
-          new THREE.PlaneGeometry(pieceSize.x * 0.95, pieceSize.y * 0.95)
-        );
-        const outlineMaterial = new THREE.LineBasicMaterial({ 
-          color: 0x4a90e2,
+        // Create cell background with alternating colors
+        const isAlternate = (x + y) % 2 === 0;
+        const cellGeometry = new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98);
+        const cellMaterial = new THREE.MeshBasicMaterial({
+          color: isAlternate ? GRID_STYLE.primaryColor : GRID_STYLE.secondaryColor,
           transparent: true,
-          opacity: 0.3
+          opacity: 0.15
+        });
+        const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+
+        // Position the cell
+        cell.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
+        cell.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
+        cell.position.z = -0.015;
+
+        sceneRef.current.add(cell);
+        guideOutlinesRef.current.push(cell);
+
+        // Create cell outline
+        const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
+        const outlineMaterial = new THREE.LineBasicMaterial({
+          color: GRID_STYLE.primaryColor,
+          transparent: true,
+          opacity: GRID_STYLE.opacity,
+          linewidth: GRID_STYLE.lineWidth
         });
         const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-        outline.position.x = (x - gridSize.x / 2 + 0.5) * pieceSize.x;
-        outline.position.y = (y - gridSize.y / 2 + 0.5) * pieceSize.y;
+        outline.position.copy(cell.position);
         outline.position.z = -0.01;
 
         sceneRef.current.add(outline);

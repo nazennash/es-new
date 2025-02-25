@@ -1062,19 +1062,19 @@ const PuzzleGame = () => {
 
   const shareToFacebook = () => {
     const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
+    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
   };
 
   const shareToTwitter = () => {
     const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! #PuzzleGame`);
+    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! #PuzzleGame`);
     window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
   };
 
   const shareToWhatsApp = () => {
     const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`I just completed a custom puzzle in ${formatTime(timeElapsed)}! Create yours: `);
+    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Create yours: `);
     window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
   };
 
