@@ -23,10 +23,10 @@ import toast from 'react-hot-toast';
 
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
-  easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
-  hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
-  expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
+  easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
+  medium: { grid: { x: 5, y: 4 }, snapDistance: 0.3, rotationEnabled: true },
+  hard: { grid: { x: 6, y: 5 }, snapDistance: 0.2, rotationEnabled: true },
+  expert: { grid: { x: 8, y: 6 }, snapDistance: 0.15, rotationEnabled: true }
 };
 
 const ACHIEVEMENTS = [
@@ -34,6 +34,27 @@ const ACHIEVEMENTS = [
   { id: 'perfectionist', name: 'Perfectionist', description: 'Complete without misplacing pieces', icon: '✨' },
   { id: 'persistent', name: 'Persistent', description: 'Complete on expert difficulty', icon: '🏆' }
 ];
+
+const CONTAINER_LAYOUT = {
+  left: {
+    position: { x: -5, y: 0 },
+    dimensions: { width: 3, height: 5 },
+    color: 0x2a2a2a
+  },
+  right: {
+    position: { x: 5, y: 0 },
+    dimensions: { width: 3, height: 5 },
+    color: 0x2a2a2a
+  }
+};
+
+const GRID_STYLE = {
+  primaryColor: 0x4a90e2,
+  secondaryColor: 0x2c5282,
+  lineWidth: 2,
+  opacity: 0.6,
+  glowStrength: 0.5
+};
 
 // 3. Helper Classes
 class SoundSystem {
@@ -356,7 +377,7 @@ const PuzzleGame = () => {
   const puzzleContainerRef = useRef(null);
   const soundRef = useRef(null);
 
-  const defaultCameraPosition = { x: 0, y: 0, z: 3 };
+  const defaultCameraPosition = { x: 0, y: 0, z: 5 };
   const defaultControlsTarget = new THREE.Vector3(0, 0, 0);
 
   // Helper functions
@@ -430,7 +451,7 @@ const PuzzleGame = () => {
 
   const handleZoomOut = () => {
     if (cameraRef.current) {
-      const newZ = Math.min(cameraRef.current.position.z + 1, 8);
+      const newZ = Math.min(cameraRef.current.position.z + 1, 10);
       cameraRef.current.position.setZ(newZ);
     }
   };
@@ -456,8 +477,8 @@ const PuzzleGame = () => {
     setIsTimerRunning(true);
 
     puzzlePiecesRef.current.forEach(piece => {
-      piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 3;
-      piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 3;
+      piece.position.x = piece.userData.originalPosition.x + (Math.random() - 0.5) * 2;
+      piece.position.y = piece.userData.originalPosition.y + (Math.random() - 0.5) * 2;
       piece.position.z = Math.random() * 0.5;
       piece.rotation.z = (Math.random() - 0.5) * 0.5;
       piece.userData.isPlaced = false;
@@ -474,23 +495,54 @@ const PuzzleGame = () => {
     guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
     guideOutlinesRef.current = [];
 
-    // Increase the size of guides (using 98% of piece size for visual gap)
+    // Create main grid container
+    const gridWidth = gridSize.x * pieceSize.x;
+    const gridHeight = gridSize.y * pieceSize.y;
+    
+    // Create background plane for entire grid
+    const gridBackground = new THREE.Mesh(
+      new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
+      new THREE.MeshBasicMaterial({
+        color: GRID_STYLE.secondaryColor,
+        transparent: true,
+        opacity: 0.2
+      })
+    );
+    gridBackground.position.z = -0.02;
+    sceneRef.current.add(gridBackground);
+    guideOutlinesRef.current.push(gridBackground);
+
+    // Create individual cell outlines
     for (let y = 0; y < gridSize.y; y++) {
       for (let x = 0; x < gridSize.x; x++) {
-        const outlineGeometry = new THREE.EdgesGeometry(
-          new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98)
-        );
-        const outlineMaterial = new THREE.LineBasicMaterial({
-          color: 0x4a90e2,
+        // Create cell background with alternating colors
+        const isAlternate = (x + y) % 2 === 0;
+        const cellGeometry = new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98);
+        const cellMaterial = new THREE.MeshBasicMaterial({
+          color: isAlternate ? GRID_STYLE.primaryColor : GRID_STYLE.secondaryColor,
           transparent: true,
-          opacity: 0.5,
-          linewidth: 2 // Note: linewidth may not work in WebGL
+          opacity: 0.15
+        });
+        const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+
+        // Position the cell
+        cell.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
+        cell.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
+        cell.position.z = -0.015;
+
+        sceneRef.current.add(cell);
+        guideOutlinesRef.current.push(cell);
+
+        // Create cell outline
+        const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
+        const outlineMaterial = new THREE.LineBasicMaterial({
+          color: GRID_STYLE.primaryColor,
+          transparent: true,
+          opacity: GRID_STYLE.opacity,
+          linewidth: GRID_STYLE.lineWidth
         });
         const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-
-        // Position guides with proper spacing
-        outline.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
-        outline.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
+        outline.position.copy(cell.position);
         outline.position.z = -0.01;
 
         sceneRef.current.add(outline);
@@ -503,19 +555,35 @@ const PuzzleGame = () => {
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
 
+    // Clear existing pieces
     puzzlePiecesRef.current.forEach(piece => {
       sceneRef.current.remove(piece);
     });
     puzzlePiecesRef.current = [];
 
+    // Create containers first
+    Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
+      const containerGeometry = new THREE.PlaneGeometry(
+        layout.dimensions.width,
+        layout.dimensions.height
+      );
+      const containerMaterial = new THREE.MeshBasicMaterial({
+        color: layout.color,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+      });
+      const container = new THREE.Mesh(containerGeometry, containerMaterial);
+      container.position.set(layout.position.x, layout.position.y, -0.1);
+      container.userData.isContainer = true;
+      container.userData.side = side;
+      sceneRef.current.add(container);
+    });
+
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const aspectRatio = texture.image.width / texture.image.height;
-
-    // Adjust base size to be larger
-    const baseSize = 1.5; // Increased base size for better visibility
-
-    // Reduced grid size for larger pieces
-    const gridSize = selectedDifficulty.grid; // Use selected difficulty grid size
+    const baseSize = 3.5;
+    const gridSize = selectedDifficulty.grid;
     const pieceSize = {
       x: (baseSize * aspectRatio) / gridSize.x,
       y: baseSize / gridSize.y
@@ -524,10 +592,12 @@ const PuzzleGame = () => {
     setTotalPieces(gridSize.x * gridSize.y);
     createPlacementGuides(gridSize, pieceSize);
 
+    // Create and arrange pieces in containers
+    const pieces = [];
     for (let y = 0; y < gridSize.y; y++) {
       for (let x = 0; x < gridSize.x; x++) {
         const geometry = new THREE.PlaneGeometry(
-          pieceSize.x * 0.98, // Slightly smaller than guide for visual gap
+          pieceSize.x * 0.98,
           pieceSize.y * 0.98,
           32,
           32
@@ -536,10 +606,10 @@ const PuzzleGame = () => {
         const material = new THREE.ShaderMaterial({
           uniforms: {
             map: { value: texture },
-            heightMap: { value: texture }, // Use the same texture for height map
+            heightMap: { value: texture },
             uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
             uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.5 }, // Adjust this value to control the depth of the relief
+            depth: { value: 0.2 },
             selected: { value: 0.0 },
             correctPosition: { value: 0.0 },
             time: { value: 0.0 }
@@ -550,32 +620,53 @@ const PuzzleGame = () => {
         });
 
         const piece = new THREE.Mesh(geometry, material);
-
-        // Position pieces with proper spacing
-        piece.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
-        piece.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
-        piece.position.z = 0;
-
-        piece.userData.originalPosition = piece.position.clone();
+        
+        // Store original position for snapping
+        piece.userData.originalPosition = new THREE.Vector3(
+          (x - (gridSize.x - 1) / 2) * pieceSize.x,
+          (y - (gridSize.y - 1) / 2) * pieceSize.y,
+          0
+        );
         piece.userData.gridPosition = { x, y };
         piece.userData.isPlaced = false;
 
-        sceneRef.current.add(piece);
-        puzzlePiecesRef.current.push(piece);
+        pieces.push(piece);
       }
     }
 
-    // Adjust camera position for better view of larger pieces
-    if (cameraRef.current) {
-      cameraRef.current.position.z = 4; // Moved camera back to show larger pieces
-    }
+    // Distribute pieces between containers
+    const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
+    const halfLength = Math.ceil(shuffledPieces.length / 2);
+    const leftPieces = shuffledPieces.slice(0, halfLength);
+    const rightPieces = shuffledPieces.slice(halfLength);
 
-    // Scramble pieces with wider distribution
-    puzzlePiecesRef.current.forEach(piece => {
-      piece.position.x += (Math.random() - 0.5) * 5; // Increased scatter range
-      piece.position.y += (Math.random() - 0.5) * 5;
-      piece.position.z += Math.random() * 0.5;
-      piece.rotation.z = (Math.random() - 0.5) * 0.5;
+    // Arrange pieces in left container
+    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+    // Arrange pieces in right container
+    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+
+    // Add all pieces to scene
+    pieces.forEach(piece => {
+      sceneRef.current.add(piece);
+      puzzlePiecesRef.current.push(piece);
+    });
+  };
+
+  // Add this new helper function after createPuzzlePieces
+  const arrangePiecesInContainer = (pieces, container, pieceSize) => {
+    const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2)); // Increased spacing
+    const rows = Math.ceil(pieces.length / cols);
+    
+    pieces.forEach((piece, index) => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      
+      // Calculate position with more spacing
+      piece.position.x = container.position.x - container.dimensions.width/2 + 
+                        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height/2 - 
+                        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.z = 0.01; // Slightly raised to avoid z-fighting
     });
   };
 
@@ -623,7 +714,7 @@ const PuzzleGame = () => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 6;
+    controls.maxDistance = 10;
     controls.minDistance = 2;
     controlsRef.current = controls;
 
