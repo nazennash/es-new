@@ -361,7 +361,6 @@ const arrangePiecesInContainer = (pieces, container, pieceSize) => {
 const calculateResponsiveLayout = (container) => {
   const width = container.clientWidth;
   const height = container.clientHeight;
-  const aspectRatio = width / height;
   const isMobile = width < 768;
 
   return {
@@ -371,17 +370,23 @@ const calculateResponsiveLayout = (container) => {
     },
     containers: {
       left: {
-        position: { x: isMobile ? -2.5 : -3.5, y: isMobile ? 2 : 0 },
+        position: { 
+          x: isMobile ? -2 : -3.5, 
+          y: isMobile ? -2 : 0 // Move to bottom on mobile
+        },
         dimensions: { 
-          width: isMobile ? 1.5 : 2,
-          height: isMobile ? 3 : 4
+          width: isMobile ? 2.5 : 2,
+          height: isMobile ? 2 : 4
         }
       },
       right: {
-        position: { x: isMobile ? 2.5 : 3.5, y: isMobile ? 2 : 0 },
+        position: { 
+          x: isMobile ? 2 : 3.5, 
+          y: isMobile ? -2 : 0 // Move to bottom on mobile
+        },
         dimensions: {
-          width: isMobile ? 1.5 : 2,
-          height: isMobile ? 3 : 4
+          width: isMobile ? 2.5 : 2,
+          height: isMobile ? 2 : 4
         }
       }
     },
@@ -1527,30 +1532,39 @@ const PuzzleGame = () => {
     <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Top Navigation Bar */}
       <div className="px-2 sm:px-6 py-2 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-            {/* Logo/Title */}
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Custom Puzzle</h1>
+        <div className="flex flex-col gap-4">
+          {/* Top Row */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Title and Controls */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Custom Puzzle</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
+                  <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Upload Image</span>
+                  <span className="sm:hidden">Upload</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
 
-            {/* Game Controls */}
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors cursor-pointer text-sm sm:text-base">
-                <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Upload Image</span>
-                <span className="sm:hidden">Upload</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
+                <DifficultyBar
+                  selectedDifficulty={selectedDifficulty}
+                  onSelect={handleDifficultyChange}
+                  className="scale-90 sm:scale-100"
                 />
-              </label>
+              </div>
+            </div>
 
-              <DifficultyBar
-                selectedDifficulty={selectedDifficulty}
-                onSelect={handleDifficultyChange}
-                className="scale-90 sm:scale-100"
-              />
+            {/* Timer */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                <span className="text-white font-mono text-sm sm:text-base">{formatTime(timeElapsed)}</span>
+              </div>
 
               {gameState !== 'initial' && (
                 <button
@@ -1563,28 +1577,19 @@ const PuzzleGame = () => {
             </div>
           </div>
 
-          {/* Game Stats */}
-          <div className="flex items-center gap-3 sm:gap-6">
-            <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg">
-              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
-              <span className="text-white font-mono text-sm sm:text-base">{formatTime(timeElapsed)}</span>
-            </div>
-
-            {totalPieces > 0 && (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="hidden sm:block text-sm text-gray-400">Progress</div>
-                <div className="w-20 sm:w-40 h-1.5 sm:h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div className="text-white font-medium text-sm sm:text-base">
+          {/* Progress Bar Row */}
+          {totalPieces > 0 && (
+            <div className="w-full bg-gray-700/30 rounded-full h-2 sm:h-3">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500 flex items-center justify-end px-2"
+                style={{ width: `${progress}%` }}
+              >
+                <span className="text-white text-xs sm:text-sm font-medium">
                   {Math.round(progress)}%
-                </div>
+                </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
