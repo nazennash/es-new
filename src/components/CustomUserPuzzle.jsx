@@ -21,10 +21,9 @@ import UpgradeModal from './UpgradeModal';
 
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
-  easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 5, y: 4 }, snapDistance: 0.3, rotationEnabled: true },
-  hard: { grid: { x: 6, y: 5 }, snapDistance: 0.2, rotationEnabled: true },
-  expert: { grid: { x: 8, y: 6 }, snapDistance: 0.15, rotationEnabled: true }
+  easy: { grid: { x: 3, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
+  medium: { grid: { x: 4, y: 4 }, snapDistance: 0.3, rotationEnabled: true },
+  hard: { grid: { x: 5, y: 5 }, snapDistance: 0.2, rotationEnabled: true }
 };
 
 const ACHIEVEMENTS = [
@@ -693,7 +692,7 @@ const PuzzleGame = () => {
     const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
     const aspectRatio = texture.image.width / texture.image.height;
     const baseSize = 3.5;
-    const gridSize = selectedDifficulty.grid;
+    const gridSize = DIFFICULTY_SETTINGS[difficulty].grid;
     const pieceSize = {
       x: (baseSize * aspectRatio) / gridSize.x,
       y: baseSize / gridSize.y
@@ -1195,15 +1194,27 @@ const PuzzleGame = () => {
 
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
+    
     if (image) {
       setLoading(true);
+      // Reset game state
+      setGameState('initial');
+      setIsTimerRunning(false);
+      setCompletedPieces(0);
+      setProgress(0);
+      setTimeElapsed(0);
+      
+      // Clear existing pieces
+      puzzlePiecesRef.current.forEach(piece => {
+        sceneRef.current.remove(piece);
+      });
+      puzzlePiecesRef.current = [];
+
+      // Create new puzzle with updated difficulty
       createPuzzlePieces(image).then(() => {
         setLoading(false);
         setGameState('playing');
         setIsTimerRunning(true);
-        setCompletedPieces(0);
-        setProgress(0);
-        setTimeElapsed(0);
       });
     }
     setShowDifficultyModal(false);
