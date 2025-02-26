@@ -220,30 +220,25 @@ const puzzlePieceShader = {
       vec4 texColor = texture2D(map, vUv);
       vec3 normal = normalize(vNormal);
       
-      // Enhanced lighting calculation for bas relief
       vec3 viewDir = normalize(vViewPosition);
       vec3 lightDir = normalize(vec3(5.0, 5.0, 5.0));
       
-      // Ambient light
       float ambient = 0.3;
-      
-      // Diffuse lighting
       float diff = max(dot(normal, lightDir), 0.0);
       float diffuse = diff * 0.7;
       
-      // Specular lighting for metallic effect
       vec3 reflectDir = reflect(-lightDir, normal);
       float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
       float specular = spec * 0.3;
       
-      // Combine lighting components
       vec3 lighting = vec3(ambient + diffuse + specular);
       
+      // Remove the continuous flashing, only show static highlight
       vec3 highlightColor = vec3(0.3, 0.6, 1.0);
-      float highlightStrength = selected * 0.5 * (0.5 + 0.5 * sin(time * 3.0));
+      float highlightStrength = selected * 0.3;
       
       vec3 correctColor = vec3(0.2, 1.0, 0.3);
-      float correctStrength = correctPosition * 0.5 * (0.5 + 0.5 * sin(time * 2.0));
+      float correctStrength = correctPosition * 0.3;
       
       vec3 finalColor = texColor.rgb * lighting;
       finalColor += highlightColor * highlightStrength + correctColor * correctStrength;
