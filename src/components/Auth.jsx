@@ -13,6 +13,34 @@ const PuzzlePiece = ({ className }) => (
   </div>
 );
 
+const getReadableErrorMessage = (error) => {
+  const errorCode = error.code;
+  switch (errorCode) {
+    case 'auth/popup-closed-by-user':
+      return 'Login cancelled. Please try again.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/operation-not-allowed':
+      return 'Login method not enabled. Please try another method.';
+    case 'auth/weak-password':
+      return 'Password is too weak. Please use a stronger password.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact support.';
+    case 'auth/user-not-found':
+      return 'No account found with this email. Please sign up first.';
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please try again later.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your internet connection.';
+    default:
+      return 'An error occurred. Please try again.';
+  }
+};
+
 const Auth = ({ onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +71,7 @@ const Auth = ({ onAuthSuccess }) => {
       localStorage.setItem('authUser', JSON.stringify(user));
       onAuthSuccess(user);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(getReadableErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +86,7 @@ const Auth = ({ onAuthSuccess }) => {
       onAuthSuccess(user);
       setMessage('Google login successful!');
     } catch (error) {
-      setMessage(error.message);
+      setMessage(getReadableErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +99,7 @@ const Auth = ({ onAuthSuccess }) => {
       setMessage('Password reset email sent!');
       setResetPassword(false);
     } catch (error) {
-      setMessage(error.message);
+      setMessage(getReadableErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
