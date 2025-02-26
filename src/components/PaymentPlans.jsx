@@ -245,7 +245,7 @@ const PaymentPlans = ({ user }) => {
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
+                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
                   MOST POPULAR
                 </div>
               )}
