@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X } from 'lucide-react';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X, RefreshCw } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { auth } from '../firebase';
 import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
@@ -1371,6 +1371,30 @@ const PuzzleGame = () => {
     }
   };
 
+  const replayPuzzle = () => {
+    if (!image) return;
+    
+    // Show loading state while recreating puzzle
+    setLoading(true);
+    
+    // Reset all game states
+    setCompletedPieces(0);
+    setProgress(0);
+    setTimeElapsed(0);
+    setGameState('playing');
+    setIsTimerRunning(true);
+    
+    // Clear existing timer if any
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Recreate puzzle with same image but shuffled pieces
+    createPuzzlePieces(image).then(() => {
+      setLoading(false);
+    });
+  };
+
   return (
     <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Main Header */}
@@ -1449,6 +1473,7 @@ const PuzzleGame = () => {
           <div className="w-full h-px bg-gray-700" />
           <ControlButton icon={<Maximize2 />} onClick={handleResetView} tooltip="Reset View" />
           <ControlButton icon={<RotateCcw />} onClick={handleResetGame} tooltip="Reset Puzzle" />
+          <ControlButton icon={<RefreshCw />} onClick={replayPuzzle} tooltip="Replay Puzzle" />
           <ControlButton
             icon={<Image />}
             onClick={() => setShowThumbnail(!showThumbnail)}
