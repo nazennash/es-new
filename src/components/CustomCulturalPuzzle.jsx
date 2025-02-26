@@ -1377,166 +1377,178 @@ const PuzzleGame = () => {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
-      {/* Top Navigation Bar */}
-      <div className="px-6 py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {/* Logo/Title */}
-          <h1 className="text-2xl font-bold text-white">Cultural Puzzle</h1>
+<div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800 overflow-hidden">
+  {/* Top Navigation Bar */}
+  <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+    {/* Logo/Title and Game Controls */}
+    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+      {/* Logo/Title */}
+      <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
+        Cultural Puzzle
+      </h1>
 
-          {/* Game Controls */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowImageSelection(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <Image className="w-4 h-4" />
-              <span>Select Image</span>
-            </button>
+      {/* Game Controls */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setShowImageSelection(true)}
+          className="px-3 sm:px-4 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base"
+        >
+          <Image className="w-4 h-4" />
+          <span>Select Image</span>
+        </button>
 
-            {/* Add Timer Display and Difficulty Bar */}
-            <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
-              <Clock className="w-4 h-4 text-blue-400" />
-              <span className="text-white font-mono">{formatTime(timeElapsed)}</span>
-            </div>
-
-            <DifficultyBar
-              selectedDifficulty={selectedDifficulty}
-              onSelect={handleDifficultyChange}
-            />
-
-            {gameState !== 'initial' && (
-              <button
-                onClick={togglePause}
-                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                {gameState === 'playing' ? <Pause /> : <Play />}
-              </button>
-            )}
-          </div>
+        {/* Timer Display */}
+        <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
+          <Clock className="w-4 h-4 text-blue-400" />
+          <span className="text-white font-mono text-sm sm:text-base">
+            {formatTime(timeElapsed)}
+          </span>
         </div>
 
-        {/* Game Stats */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
-            <Clock className="w-4 h-4 text-blue-400" />
-            <span className="text-white font-mono">{formatTime(timeElapsed)}</span>
-          </div>
+        {/* Difficulty Bar */}
+        <DifficultyBar
+          selectedDifficulty={selectedDifficulty}
+          onSelect={handleDifficultyChange}
+        />
 
-          {totalPieces > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-gray-400">Progress</div>
-              <div className="w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="text-white font-medium">
-                {Math.round(progress)}%
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Game Area */}
-      <div className="flex-1 relative">
-        <div ref={containerRef} className="w-full h-full" />
-
-        {/* Side Controls */}
-        <div className="absolute right-6 top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
+        {/* Pause/Play Button */}
+        {gameState !== 'initial' && (
           <button
-            onClick={handleZoomIn}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Zoom In"
+            onClick={togglePause}
+            className="p-1 sm:p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
           >
-            <ZoomIn className="w-5 h-5" />
+            {gameState === 'playing' ? <Pause /> : <Play />}
           </button>
-          <button
-            onClick={handleZoomOut}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-5 h-5" />
-          </button>
-          <div className="w-full h-px bg-gray-700 my-1" />
-          <button
-            onClick={handleResetView}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Reset View"
-          >
-            <Maximize2 className="w-5 h-5" />
-          </button>
-          <button
-            onClick={handleResetGame}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Reset Puzzle"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
-          <div className="w-full h-px bg-gray-700 my-1" />
-          <button
-            onClick={() => setShowThumbnail(!showThumbnail)}
-            className={`p-2 text-white rounded transition-colors ${showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
-              }`}
-            title="Toggle Reference Image"
-          >
-            <Image className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Reference Image */}
-        {showThumbnail && image && (
-          <div className="absolute left-6 top-6 p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
-            <img
-              src={image}
-              alt="Reference"
-              className="w-48 h-auto rounded border border-gray-700"
-            />
-          </div>
-        )}
-
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <div className="text-xl text-white font-medium">Loading puzzle...</div>
-            </div>
-          </div>
         )}
       </div>
-
-      {/* Image Selection Modal */}
-      <ImageSelectionModal
-        images={PRESET_IMAGES}
-        onSelect={(img) => {
-          setImage(img.src);
-          createPuzzlePieces(img.src).then(() => {
-            setLoading(false);
-            setGameState('playing');
-            setIsTimerRunning(true);
-            setCompletedPieces(0);
-            setProgress(0);
-            setTimeElapsed(0);
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-            }
-          });
-        }}
-        isOpen={showImageSelection}
-        onClose={() => setShowImageSelection(false)}
-      />
-      <UpgradeModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onUpgrade={() => navigate("/payment-plans")}
-      />
-
-      {/* Share Modal */}
-      {showShareModal && <ShareModal />}
     </div>
+
+    {/* Game Stats */}
+    <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-normal">
+      {/* Timer Display (Duplicate for mobile layout) */}
+      <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
+        <Clock className="w-4 h-4 text-blue-400" />
+        <span className="text-white font-mono text-sm sm:text-base">
+          {formatTime(timeElapsed)}
+        </span>
+      </div>
+
+      {/* Progress Bar */}
+      {totalPieces > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-400 hidden sm:block">Progress</div>
+          <div className="w-24 sm:w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="text-white font-medium text-sm sm:text-base">
+            {Math.round(progress)}%
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* Main Game Area */}
+  <div className="flex-1 relative overflow-hidden">
+    <div ref={containerRef} className="w-full h-full" />
+
+    {/* Side Controls */}
+    <div className="absolute right-2 sm:right-6 top-2 sm:top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
+      <button
+        onClick={handleZoomIn}
+        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+        title="Zoom In"
+      >
+        <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
+      </button>
+      <button
+        onClick={handleZoomOut}
+        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+        title="Zoom Out"
+      >
+        <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
+      </button>
+      <div className="w-full h-px bg-gray-700 my-1" />
+      <button
+        onClick={handleResetView}
+        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+        title="Reset View"
+      >
+        <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
+      </button>
+      <button
+        onClick={handleResetGame}
+        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+        title="Reset Puzzle"
+      >
+        <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+      </button>
+      <div className="w-full h-px bg-gray-700 my-1" />
+      <button
+        onClick={() => setShowThumbnail(!showThumbnail)}
+        className={`p-2 text-white rounded transition-colors ${
+          showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
+        }`}
+        title="Toggle Reference Image"
+      >
+        <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+      </button>
+    </div>
+
+    {/* Reference Image */}
+    {showThumbnail && image && (
+      <div className="absolute left-2 sm:left-6 top-2 sm:top-6 p-2 sm:p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
+        <img
+          src={image}
+          alt="Reference"
+          className="w-32 sm:w-48 h-auto rounded border border-gray-700"
+        />
+      </div>
+    )}
+
+    {/* Loading Overlay */}
+    {loading && (
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="text-xl text-white font-medium">Loading puzzle...</div>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Image Selection Modal */}
+  <ImageSelectionModal
+    images={PRESET_IMAGES}
+    onSelect={(img) => {
+      setImage(img.src);
+      createPuzzlePieces(img.src).then(() => {
+        setLoading(false);
+        setGameState('playing');
+        setIsTimerRunning(true);
+        setCompletedPieces(0);
+        setProgress(0);
+        setTimeElapsed(0);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      });
+    }}
+    isOpen={showImageSelection}
+    onClose={() => setShowImageSelection(false)}
+  />
+  <UpgradeModal
+    isOpen={isModalOpen}
+    onClose={() => setIsModalOpen(false)}
+    onUpgrade={() => navigate("/payment-plans")}
+  />
+
+  {/* Share Modal */}
+  {showShareModal && <ShareModal />}
+</div>
   );
 };
 
