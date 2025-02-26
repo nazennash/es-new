@@ -37,7 +37,8 @@ const CONTAINER_LAYOUT = {
   left: {
     position: { x: -3.5, y: 0 },
     dimensions: { width: 2, height: 4 },
-    color: 0x2a2a2a
+    // color: 0x2a2a2a
+    color: 'red'
   },
   right: {
     position: { x: 3.5, y: 0 },
