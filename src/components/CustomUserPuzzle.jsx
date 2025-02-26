@@ -34,15 +34,29 @@ const ACHIEVEMENTS = [
 ];
 
 const CONTAINER_LAYOUT = {
-  left: {
-    position: { x: -3.5, y: 0 },
-    dimensions: { width: 2, height: 4 },
-    color: 0x2a2a2a
+  desktop: {
+    left: {
+      position: { x: -3.5, y: 0 },
+      dimensions: { width: 2, height: 4 },
+      color: 0x2a2a2a
+    },
+    right: {
+      position: { x: 3.5, y: 0 },
+      dimensions: { width: 2, height: 4 },
+      color: 0x2a2a2a
+    }
   },
-  right: {
-    position: { x: 3.5, y: 0 },
-    dimensions: { width: 2, height: 4 },
-    color: 0x2a2a2a
+  mobile: {
+    left: {
+      position: { x: -2, y: -2 },
+      dimensions: { width: 2.5, height: 2 },
+      color: 0x2a2a2a
+    },
+    right: {
+      position: { x: 2, y: -2 },
+      dimensions: { width: 2.5, height: 2 },
+      color: 0x2a2a2a
+    }
   }
 };
 
