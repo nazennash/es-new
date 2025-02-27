@@ -668,97 +668,105 @@ const PuzzleGame = () => {
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
 
-    // Clear existing pieces
-    puzzlePiecesRef.current.forEach(piece => {
-      sceneRef.current.remove(piece);
-    });
-    puzzlePiecesRef.current = [];
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Clear existing pieces
+        puzzlePiecesRef.current.forEach(piece => {
+          sceneRef.current.remove(piece);
+        });
+        puzzlePiecesRef.current = [];
 
-    // Create containers first
-    Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
-      const containerGeometry = new THREE.PlaneGeometry(
-        layout.dimensions.width,
-        layout.dimensions.height
-      );
-      const containerMaterial = new THREE.MeshBasicMaterial({
-        color: layout.color,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-      });
-      const container = new THREE.Mesh(containerGeometry, containerMaterial);
-      container.position.set(layout.position.x, layout.position.y, -0.1);
-      container.userData.isContainer = true;
-      container.userData.side = side;
-      sceneRef.current.add(container);
-    });
-
-    const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-    const aspectRatio = texture.image.width / texture.image.height;
-    const baseSize = 3.5;
-    const gridSize = selectedDifficulty.grid;
-    const pieceSize = {
-      x: (baseSize * aspectRatio) / gridSize.x,
-      y: baseSize / gridSize.y
-    };
-
-    setTotalPieces(gridSize.x * gridSize.y);
-    createPlacementGuides(gridSize, pieceSize);
-
-    // Create pieces array first
-    const pieces = [];
-    for (let y = 0; y < gridSize.y; y++) {
-      for (let x = 0; x < gridSize.x; x++) {
-        const geometry = new THREE.PlaneGeometry(
-          pieceSize.x * 0.98,
-          pieceSize.y * 0.98,
-          32,
-          32
-        );
-
-        const material = new THREE.ShaderMaterial({
-          uniforms: {
-            map: { value: texture },
-            heightMap: { value: texture },
-            uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
-            uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.2 },
-            selected: { value: 0.0 },
-            correctPosition: { value: 0.0 },
-            time: { value: 0.0 }
-          },
-          vertexShader: puzzlePieceShader.vertexShader,
-          fragmentShader: puzzlePieceShader.fragmentShader,
-          side: THREE.DoubleSide
+        // Create containers first
+        Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
+          const containerGeometry = new THREE.PlaneGeometry(
+            layout.dimensions.width,
+            layout.dimensions.height
+          );
+          const containerMaterial = new THREE.MeshBasicMaterial({
+            color: layout.color,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+          });
+          const container = new THREE.Mesh(containerGeometry, containerMaterial);
+          container.position.set(layout.position.x, layout.position.y, -0.1);
+          container.userData.isContainer = true;
+          container.userData.side = side;
+          sceneRef.current.add(container);
         });
 
-        const piece = new THREE.Mesh(geometry, material);
-        piece.userData.originalPosition = new THREE.Vector3(
-          (x - (gridSize.x - 1) / 2) * pieceSize.x,
-          (y - (gridSize.y - 1) / 2) * pieceSize.y,
-          0
-        );
-        piece.userData.gridPosition = { x, y };
-        piece.userData.isPlaced = false;
+        const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
+        const aspectRatio = texture.image.width / texture.image.height;
+        const baseSize = 3.5;
+        const gridSize = selectedDifficulty.grid;
+        const pieceSize = {
+          x: (baseSize * aspectRatio) / gridSize.x,
+          y: baseSize / gridSize.y
+        };
 
-        pieces.push(piece);
+        setTotalPieces(gridSize.x * gridSize.y);
+        createPlacementGuides(gridSize, pieceSize);
+
+        // Create pieces array first
+        const pieces = [];
+        for (let y = 0; y < gridSize.y; y++) {
+          for (let x = 0; x < gridSize.x; x++) {
+            const geometry = new THREE.PlaneGeometry(
+              pieceSize.x * 0.98,
+              pieceSize.y * 0.98,
+              32,
+              32
+            );
+
+            const material = new THREE.ShaderMaterial({
+              uniforms: {
+                map: { value: texture },
+                heightMap: { value: texture },
+                uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
+                uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
+                depth: { value: 0.2 },
+                selected: { value: 0.0 },
+                correctPosition: { value: 0.0 },
+                time: { value: 0.0 }
+              },
+              vertexShader: puzzlePieceShader.vertexShader,
+              fragmentShader: puzzlePieceShader.fragmentShader,
+              side: THREE.DoubleSide
+            });
+
+            const piece = new THREE.Mesh(geometry, material);
+            piece.userData.originalPosition = new THREE.Vector3(
+              (x - (gridSize.x - 1) / 2) * pieceSize.x,
+              (y - (gridSize.y - 1) / 2) * pieceSize.y,
+              0
+            );
+            piece.userData.gridPosition = { x, y };
+            piece.userData.isPlaced = false;
+
+            pieces.push(piece);
+          }
+        }
+
+        // Distribute pieces between containers
+        const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
+        const halfLength = Math.ceil(shuffledPieces.length / 2);
+        const leftPieces = shuffledPieces.slice(0, halfLength);
+        const rightPieces = shuffledPieces.slice(halfLength);
+
+        // Arrange pieces in containers
+        arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+        arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+
+        // Add all pieces to scene and reference array
+        pieces.forEach(piece => {
+          sceneRef.current.add(piece);
+          puzzlePiecesRef.current.push(piece);
+        });
+
+        resolve();
+      } catch (error) {
+        reject(error);
       }
-    }
-
-    // Distribute pieces between containers
-    const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
-    const halfLength = Math.ceil(shuffledPieces.length / 2);
-    const leftPieces = shuffledPieces.slice(0, halfLength);
-    const rightPieces = shuffledPieces.slice(halfLength);
-
-    // Arrange pieces in containers
-    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
-
-    // Add all pieces to scene and reference array
-    pieces.forEach(piece => {
-      sceneRef.current.add(piece);
-      puzzlePiecesRef.current.push(piece);
     });
   };
 
@@ -1190,19 +1198,28 @@ const PuzzleGame = () => {
   );
 
   // Add this handler
-  const handleDifficultyChange = (newDifficulty) => {
+  const handleDifficultyChange = async (newDifficulty) => {
+    // Update state first
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
+    
+    // Only recreate puzzle if there's an image
     if (image) {
       setLoading(true);
-      createPuzzlePieces(image).then(() => {
-        setLoading(false);
+      try {
+        // Wait for piece creation to complete
+        await createPuzzlePieces(image);
+        // Reset game state after pieces are created
         setGameState('playing');
         setIsTimerRunning(true);
         setCompletedPieces(0);
         setProgress(0);
         setTimeElapsed(0);
-      });
+      } catch (error) {
+        console.error('Error creating puzzle pieces:', error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
