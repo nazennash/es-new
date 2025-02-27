@@ -5,7 +5,7 @@ const UpgradeModalHome = ({ isOpen, onClose, onUpgrade }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 flex justify-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+        <div className="fixed inset-0 flex justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
             <div className="bg-white rounded-lg shadow-lg p-6 w-96 absolute top-[50vh]">
                 <h2 className="text-lg font-semibold text-gray-800">
                     Upgrade to Premium
