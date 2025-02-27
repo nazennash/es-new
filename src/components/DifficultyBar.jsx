@@ -1,10 +1,11 @@
 import React from 'react';
 
+// Update difficulties array to ensure consistency
 export const difficulties = [
-  { id: 'easy', label: 'Easy', grid: { x: 4, y: 3 }, icon: '🟢' },
-  { id: 'medium', label: 'Medium', grid: { x: 5, y: 4 }, icon: '🟡' },
-  { id: 'hard', label: 'Hard', grid: { x: 6, y: 5 }, icon: '🟠' },
-  { id: 'expert', label: 'Expert', grid: { x: 8, y: 6 }, icon: '🔴' }
+  { id: 'easy', label: 'Easy', grid: { x: 3, y: 2 }, icon: '🟢' },
+  { id: 'medium', label: 'Medium', grid: { x: 4, y: 3 }, icon: '🟡' },
+  { id: 'hard', label: 'Hard', grid: { x: 5, y: 4 }, icon: '🟠' },
+  { id: 'expert', label: 'Expert', grid: { x: 6, y: 5 }, icon: '🔴' }
 ];
 
 const DifficultyBar = ({ selectedDifficulty, onSelect, className }) => {

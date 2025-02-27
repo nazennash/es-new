@@ -18,6 +18,13 @@ const CollaborativePuzzle = () => {
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [puzzleType, setPuzzleType] = useState('classic');
 
+  const DIFFICULTY_SETTINGS = {
+    easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
+    medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
+    hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
+    expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
+  };
+
   // Get current user data
   const userData = JSON.parse(localStorage.getItem('authUser'));
   const userId = userData?.uid;
@@ -186,6 +193,55 @@ const CollaborativePuzzle = () => {
     } catch (error) {
       console.error('Failed to update puzzle type:', error);
       toast.error('Failed to change puzzle type');
+    }
+  };
+
+  // Update the handleDifficultyChange function
+  const handleDifficultyChange = async (newDifficulty) => {
+    if (gameState === 'playing') {
+      const confirmChange = window.confirm('Changing difficulty will reset the current puzzle for all players. Continue?');
+      if (!confirmChange) return;
+    }
+  
+    if (!isHost) {
+      toast.error('Only the host can change difficulty');
+      return;
+    }
+  
+    setSelectedDifficulty(newDifficulty);
+    
+    try {
+      await update(ref(database, `games/${actualGameId}`), {
+        difficulty: newDifficulty.id,
+        lastUpdated: Date.now()
+      });
+  
+      // Clear existing pieces
+      puzzlePiecesRef.current.forEach(piece => {
+        if (sceneRef.current) {
+          sceneRef.current.remove(piece);
+        }
+      });
+      puzzlePiecesRef.current = [];
+  
+      if (image) {
+        setLoading(true);
+        // Reset game state
+        setGameState('initial');
+        setIsTimerRunning(false);
+        setCompletedPieces(0);
+        setProgress(0);
+        setTimeElapsed(0);
+        
+        // Recreate puzzle with new difficulty
+        await createPuzzlePieces(image);
+        setLoading(false);
+        setGameState('playing');
+        setIsTimerRunning(true);
+      }
+    } catch (error) {
+      console.error('Failed to update difficulty:', error);
+      toast.error('Failed to change difficulty');
     }
   };
 

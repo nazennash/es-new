@@ -1230,88 +1230,78 @@ const PuzzleGame = () => {
   // Modify the completion effect
   useEffect(() => {
     if (progress === 100 && auth?.currentUser) {
-      // const completionData = {
-      //   puzzleId: `custom_${Date.now()}`,
-      //   userId: auth.currentUser.uid,
-      //   playerName: auth.currentUser.email || 'Anonymous',
-      //   startTime,
-      //   difficulty,
-      //   imageUrl: image,
-      //   timer: timeElapsed,
-      //   completedAt: new Date(),
-      //   totalPieces,
-      //   completedPieces
-      // };
-
       const completionData = {
         puzzleId: `custom_${Date.now()}`,
         userId: auth.currentUser.uid,
         playerName: auth.currentUser.email || 'Anonymous',
         startTime: startTime,
-        difficulty,
+        difficulty: selectedDifficulty.id, // Use selectedDifficulty instead of difficulty
         imageUrl: image,
         timer: timeElapsed,
+        isPremium: isPremium, // Add premium status
+        completedAt: serverTimestamp()
       };
 
-      console.log('Data sent to handlePuzzleCompletion:', completionData);
-      handlePuzzleCompletion(completionData);
-      // await handlePuzzleCompletion(completionData);
+      // Handle puzzle completion
+      handlePuzzleCompletion(completionData).then(() => {
+        // Check achievements after completion
+        const achievements = checkAchievements();
+        setCompletedAchievements(achievements);
 
-      // console.log('Puzzle Completion Data:', completionData);
-      // handlePuzzleCompletionCustom(completionData);
+        // Update game state if in multiplayer
+        if (gameId) {
+          updateGameState({
+            state: 'completed',
+            completionTime: timeElapsed,
+            achievements: achievements.map(a => a.id)
+          });
+        }
 
-      // Log achievement data
-      const achievements = checkAchievements();
-      console.log('Achievements Earned:', achievements);
+        // Show share modal
+        setShowShareModal(true);
 
-      // Update game state
-      if (gameId) {
-        const gameUpdateData = {
-          state: 'completed',
-          completionTime: timeElapsed,
-          achievements: achievements.map(a => a.id)
-        };
-        console.log('Game State Update:', gameUpdateData);
-        updateGameState(gameUpdateData);
-      }
-    }
-  }, [progress, startTime, difficulty, image, timeElapsed, totalPieces, completedPieces]);
+        // Play completion sound
+        soundRef.current?.play('complete');
 
-  // Add synchronous completion handler
-  const synchronousCompletion = async () => {
-    try {
-      console.log('Starting synchronous completion process...');
-
-      // Wait for puzzle completion
-      await handlePuzzleCompletionCustom({
-        puzzleId: `custom_${Date.now()}`,
-        userId: auth?.currentUser?.uid,
-        playerName: auth?.currentUser?.displayName || 'Anonymous',
-        startTime,
-        difficulty,
-        imageUrl: image,
-        timer: timeElapsed
+        // Check puzzle limits for free users
+        if (!isPremium) {
+          checkPuzzleLimits();
+        }
+      }).catch(error => {
+        console.error('Error handling puzzle completion:', error);
+        toast.error('Failed to save puzzle completion');
       });
+    }
+  }, [progress, auth.currentUser, startTime, selectedDifficulty, image, timeElapsed, isPremium, gameId]);
 
-      // Wait for achievements check
-      const achievements = checkAchievements();
-      console.log('Processing achievements:', achievements);
+  // Add puzzle limit checking
+  const checkPuzzleLimits = async () => {
+    const db = getFirestore();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Wait for game state update
-      if (gameId) {
-        await updateGameState({
-          state: 'completed',
-          completionTime: timeElapsed,
-          achievements: achievements.map(a => a.id)
-        });
+    const q = query(
+      collection(db, 'completed_puzzles'),
+      where('userId', '==', auth.currentUser?.uid),
+      where('completedAt', '>=', startOfMonth)
+    );
+
+    try {
+      const querySnapshot = await getDocs(q);
+      const puzzleCount = querySnapshot.size;
+
+      if (puzzleCount === 1) {
+        toast.success("You've completed 1 puzzle this month. You have 1 more puzzle left!");
+      } else if (puzzleCount >= 2) {
+        toast.error("You've reached your monthly limit for creating custom puzzles. Upgrade to Premium to create more!");
+        setIsModalOpen(true);
       }
-
-      console.log('Completion process finished successfully');
-      setShowShareModal(true);
     } catch (error) {
-      console.error('Error in completion process:', error);
+      console.error('Error checking puzzle limits:', error);
     }
   };
+
+  // Remove the old synchronousCompletion function as it's no longer needed
 
   // Add sound initialization
   useEffect(() => {
@@ -1370,7 +1360,7 @@ const PuzzleGame = () => {
     }
 
     // Persistent achievement
-    if (difficulty === 'expert') {
+    if (selectedDifficulty.id === 'expert') {
       achievements.push(ACHIEVEMENTS.find(a => a.id === 'persistent'));
     }
 

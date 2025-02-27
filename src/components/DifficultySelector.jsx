@@ -1,10 +1,10 @@
 import React from 'react';
 
 const difficulties = [
-  { id: 'easy', label: 'Easy', grid: { x: 4, y: 3 }, description: 'Perfect for beginners' },
-  { id: 'medium', label: 'Medium', grid: { x: 5, y: 4 }, description: 'A balanced challenge' },
-  { id: 'hard', label: 'Hard', grid: { x: 6, y: 5 }, description: 'For experienced puzzlers' },
-  { id: 'expert', label: 'Expert', grid: { x: 8, y: 6 }, description: 'Maximum difficulty' }
+  { id: 'easy', label: 'Easy', grid: { x: 3, y: 2 }, description: 'Perfect for beginners' },
+  { id: 'medium', label: 'Medium', grid: { x: 4, y: 3 }, description: 'A balanced challenge' },
+  { id: 'hard', label: 'Hard', grid: { x: 5, y: 4 }, description: 'For experienced puzzlers' },
+  { id: 'expert', label: 'Expert', grid: { x: 6, y: 5 }, description: 'Maximum difficulty' }
 ];
 
 const DifficultySelector = ({ onSelect, selectedDifficulty, className }) => {
