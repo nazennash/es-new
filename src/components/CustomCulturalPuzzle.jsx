@@ -1343,6 +1343,26 @@ const PuzzleGame = () => {
     animate();
   };
 
+  const replayPuzzle = () => {
+    if (!image) return;
+    
+    // Reset game state
+    setLoading(true);
+    setGameState('playing');
+    setIsTimerRunning(true);
+    setCompletedPieces(0);
+    setProgress(0);
+    setTimeElapsed(0);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    // Recreate puzzle pieces with current settings
+    createPuzzlePieces(image).then(() => {
+      setLoading(false);
+    });
+  };
+
   const PRESET_IMAGES = [
     { id: 'elephant', src: elephant, title: 'African Elephant', description: 'Majestic elephant in its natural habitat' },
     { id: 'pyramid', src: pyramid, title: 'Egyptian Pyramid', description: 'Ancient pyramid of Giza' },
