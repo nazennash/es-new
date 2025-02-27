@@ -631,6 +631,28 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     }
   };
 
+  const arrangePiecesInContainer = (pieces, containerLayout, pieceSize) => {
+    const { position, dimensions } = containerLayout;
+  
+    // Calculate the bounds of the container
+    const minX = position.x - dimensions.width / 2;
+    const maxX = position.x + dimensions.width / 2;
+    const minY = position.y - dimensions.height / 2;
+    const maxY = position.y + dimensions.height / 2;
+  
+    // Randomly position each piece within the container bounds
+    pieces.forEach((piece) => {
+      const randomX = minX + Math.random() * (maxX - minX);
+      const randomY = minY + Math.random() * (maxY - minY);
+  
+      // Set the piece's position
+      piece.position.set(randomX, randomY, 0);
+  
+      // Add a small random rotation for visual effect
+      piece.rotation.z = Math.random() * Math.PI * 2;
+    });
+  };
+
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
   

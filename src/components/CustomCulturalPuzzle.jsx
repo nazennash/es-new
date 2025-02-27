@@ -1381,7 +1381,7 @@ const PuzzleGame = () => {
   {/* Top Navigation Bar */}
   <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
     {/* Logo/Title and Game Controls */}
-    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+    <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
       {/* Logo/Title */}
       <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
         Cultural Puzzle

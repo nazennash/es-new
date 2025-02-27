@@ -17,7 +17,7 @@ const CollaborativePuzzle = () => {
   const [inviteLink, setInviteLink] = useState('');
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [puzzleType, setPuzzleType] = useState('classic');
-  
+
   // Get current user data
   const userData = JSON.parse(localStorage.getItem('authUser'));
   const userId = userData?.uid;
@@ -116,7 +116,7 @@ const CollaborativePuzzle = () => {
     return () => {
       gameListener();
       playersListener();
-      
+
       // Remove player when leaving
       if (!isHost) {
         remove(ref(database, `games/${actualGameId}/players/${userId}`));
@@ -127,13 +127,13 @@ const CollaborativePuzzle = () => {
   // Add puzzle type listener
   useEffect(() => {
     if (!actualGameId) return;
-    
+
     const puzzleTypeRef = ref(database, `games/${actualGameId}/puzzleType`);
     const puzzleTypeListener = onValue(puzzleTypeRef, (snapshot) => {
       const type = snapshot.val();
       if (type) setPuzzleType(type);
     });
-    
+
     return () => puzzleTypeListener();
   }, [actualGameId]);
 
@@ -175,7 +175,7 @@ const CollaborativePuzzle = () => {
   // Add puzzle type synchronization
   const updatePuzzleType = async (newType) => {
     if (!isHost) return;
-    
+
     try {
       await update(ref(database, `games/${actualGameId}`), {
         puzzleType: newType,
@@ -223,7 +223,23 @@ const CollaborativePuzzle = () => {
   };
 
   const handleFacebookShare = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}`);
+    const text = encodeURIComponent(`Hey! Join my puzzle game: ${inviteLink}`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${text}`);
+  };
+
+  const handleTwitterShare = () => {
+    const text = encodeURIComponent(`Hey! Join my puzzle game: ${inviteLink}`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}`);
+  };
+
+  const handleLinkedInShare = () => {
+    const text = encodeURIComponent(`Hey! Join my puzzle game: ${inviteLink}`);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(inviteLink)}&summary=${text}`);
+  };
+
+  const handleInstagramShare = () => {
+    // Instagram doesn't support direct sharing via URL, so you can only share the link
+    window.open(`https://www.instagram.com/?url=${encodeURIComponent(inviteLink)}`);
   };
 
   // Loading state
@@ -302,7 +318,7 @@ const CollaborativePuzzle = () => {
                 <span>Back</span>
               </button>
             </div>
-            
+
             {/* Enhanced Puzzle Type Selector */}
             {isHost && (
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -315,11 +331,10 @@ const CollaborativePuzzle = () => {
                     <button
                       key={type.id}
                       onClick={() => updatePuzzleType(type.id)}
-                      className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${
-                        puzzleType === type.id
-                          ? 'bg-blue-500 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-purple-900'
-                          : 'bg-white/10 text-white/70 hover:bg-white/20 hover:scale-105'
-                      }`}
+                      className={`px-3 py-2 rounded-lg flex items-center justify-center gap-2 transition-all ${puzzleType === type.id
+                        ? 'bg-blue-500 text-white ring-2 ring-blue-400 ring-offset-2 ring-offset-purple-900'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20 hover:scale-105'
+                        }`}
                     >
                       {type.icon}
                       <span className="hidden sm:inline">{type.label}</span>
@@ -392,7 +407,7 @@ const CollaborativePuzzle = () => {
                       <Copy size={20} />
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button
                       onClick={handleEmailShare}
@@ -401,7 +416,7 @@ const CollaborativePuzzle = () => {
                       <Mail size={20} />
                       <span>Email</span>
                     </button>
-                    
+
                     <button
                       onClick={handleWhatsAppShare}
                       className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-lg transform hover:scale-105 transition-all"
@@ -409,13 +424,37 @@ const CollaborativePuzzle = () => {
                       <Share2 size={20} />
                       <span>WhatsApp</span>
                     </button>
-                    
+
                     <button
                       onClick={handleFacebookShare}
                       className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg transform hover:scale-105 transition-all"
                     >
                       <Share2 size={20} />
                       <span>Facebook</span>
+                    </button>
+
+                    <button
+                      onClick={handleTwitterShare}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-300 hover:to-blue-400 text-white rounded-lg transform hover:scale-105 transition-all"
+                    >
+                      <Share2 size={20} />
+                      <span>Twitter</span>
+                    </button>
+
+                    <button
+                      onClick={handleLinkedInShare}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transform hover:scale-105 transition-all"
+                    >
+                      <Share2 size={20} />
+                      <span>LinkedIn</span>
+                    </button>
+
+                    <button
+                      onClick={handleInstagramShare}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-700 to-blue-800 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transform hover:scale-105 transition-all"
+                    >
+                      <Share2 size={20} />
+                      <span>Instagram</span>
                     </button>
                   </div>
                 </div>
@@ -440,9 +479,8 @@ const CollaborativePuzzle = () => {
                     key={player.id}
                     className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all"
                   >
-                    <div className={`w-3 h-3 rounded-full ${
-                      player.isOnline ? 'bg-green-400 animate-pulse' : 'bg-gray-400'
-                    }`} />
+                    <div className={`w-3 h-3 rounded-full ${player.isOnline ? 'bg-green-400 animate-pulse' : 'bg-gray-400'
+                      }`} />
                     <span className="flex-1 text-white">{player.name}</span>
                     {player.isHost && (
                       <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs font-medium rounded">HOST</span>
@@ -465,7 +503,7 @@ const CollaborativePuzzle = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
