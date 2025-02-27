@@ -33,7 +33,7 @@ const DifficultyBar = ({ selectedDifficulty, onSelect, className }) => {
           </button>
           <Tooltip
             id={`difficulty-${difficulty.id}`}
-            content="Click to select difficulty"
+            content="Click twice to reset"
             place="top"
             effect="solid"
             className="bg-gray-800 text-white px-2 py-1 text-xs rounded shadow-lg"
