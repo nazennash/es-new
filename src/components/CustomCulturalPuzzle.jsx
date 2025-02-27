@@ -1371,11 +1371,6 @@ const PuzzleGame = () => {
 
   // Add difficulty change handler
   const handleDifficultyChange = (newDifficulty) => {
-    if (gameState === 'playing') {
-      const confirmChange = window.confirm('Changing difficulty will reset the current puzzle. Continue?');
-      if (!confirmChange) return;
-    }
-
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
     if (image) {

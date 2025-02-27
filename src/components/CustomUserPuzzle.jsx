@@ -1191,11 +1191,6 @@ const PuzzleGame = () => {
 
   // Add this handler
   const handleDifficultyChange = (newDifficulty) => {
-    if (gameState === 'playing') {
-      const confirmChange = window.confirm('Changing difficulty will reset the current puzzle. Continue?');
-      if (!confirmChange) return;
-    }
-
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
     if (image) {
@@ -1209,7 +1204,6 @@ const PuzzleGame = () => {
         setTimeElapsed(0);
       });
     }
-    setShowDifficultyModal(false);
   };
 
   // Add this function inside the component
