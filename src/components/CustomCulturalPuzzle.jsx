@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
   easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 5, y: 4 }, snapDistance: 3, rotationEnabled: true },
+  medium: { grid: { x: 5, y: 4 }, snapDistance: 0.3, rotationEnabled: true },
   hard: { grid: { x: 6, y: 5 }, snapDistance: 0.2, rotationEnabled: true },
   expert: { grid: { x: 8, y: 6 }, snapDistance: 0.15, rotationEnabled: true }
 };
