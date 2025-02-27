@@ -1199,6 +1199,12 @@ const PuzzleGame = () => {
 
   // Add this handler
   const handleDifficultyChange = async (newDifficulty) => {
+    // Show loading toast
+    toast.loading('Changing difficulty level...', {
+      id: 'difficulty-change',
+      duration: 1000,
+    });
+    
     // Update state first
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
@@ -1215,8 +1221,16 @@ const PuzzleGame = () => {
         setCompletedPieces(0);
         setProgress(0);
         setTimeElapsed(0);
+        
+        // Show success toast
+        toast.success(`Difficulty changed to ${newDifficulty.name}`, {
+          id: 'difficulty-change',
+        });
       } catch (error) {
         console.error('Error creating puzzle pieces:', error);
+        toast.error('Failed to change difficulty', {
+          id: 'difficulty-change',
+        });
       } finally {
         setLoading(false);
       }

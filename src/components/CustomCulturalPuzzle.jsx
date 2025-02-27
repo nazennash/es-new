@@ -1379,20 +1379,38 @@ const PuzzleGame = () => {
 
   // Add difficulty change handler
   const handleDifficultyChange = async (newDifficulty) => {
+    // Show loading toast
+    toast.loading('Changing difficulty level...', {
+      id: 'difficulty-change',
+      duration: 1000,
+    });
+    
+    // Update state first
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
     
+    // Only recreate puzzle if there's an image
     if (image) {
       setLoading(true);
       try {
+        // Wait for piece creation to complete
         await createPuzzlePieces(image);
+        // Reset game state after pieces are created
         setGameState('playing');
         setIsTimerRunning(true);
         setCompletedPieces(0);
         setProgress(0);
         setTimeElapsed(0);
+        
+        // Show success toast
+        toast.success(`Difficulty changed to ${newDifficulty.label}`, {
+          id: 'difficulty-change',
+        });
       } catch (error) {
         console.error('Error creating puzzle pieces:', error);
+        toast.error('Failed to change difficulty', {
+          id: 'difficulty-change',
+        });
       } finally {
         setLoading(false);
       }
