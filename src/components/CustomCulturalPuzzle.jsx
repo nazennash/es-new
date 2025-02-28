@@ -7,8 +7,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { auth } from '../firebase';
-import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { auth, nanoid } from '../firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { ref, update, getDatabase } from 'firebase/database';
 import elephant from '../assets/elephant.png';
 import pyramid from '../assets/pyramid.png';
@@ -20,6 +20,8 @@ import { handlePuzzleCompletion, isPuzzleComplete } from './PuzzleCompletionHand
 import UpgradeModal from './UpgradeModal';
 import useUserSubscription from '../hooks/useUserSubscription';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import { FaSignOutAlt } from 'react-icons/fa';
 
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
@@ -342,7 +344,7 @@ const PuzzleGame = () => {
   // State declarations
   const subscription = useUserSubscription(auth.currentUser?.uid); // Get subscription status
   const isPremium = subscription.planId === "pro" && subscription.status === "active";
-  const [puzzleCount, setPuzzleCount] = useState(0); // Track puzzle count for the month
+  const [puzzleCount, setPuzzleCount] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -351,11 +353,11 @@ const PuzzleGame = () => {
   const [totalPieces, setTotalPieces] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [gameState, setGameState] = useState('initial'); // 'initial', 'playing', 'paused'
+  const [gameState, setGameState] = useState('initial');
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [difficulty, setDifficulty] = useState(4); // default difficulty
+  const [difficulty, setDifficulty] = useState(4);
   const [gameId, setGameId] = useState(null);
   const [completedAchievements, setCompletedAchievements] = useState([]);
   const [showImageSelection, setShowImageSelection] = useState(true);
@@ -389,7 +391,7 @@ const PuzzleGame = () => {
 
   const startGame = async () => {
     if (!image) {
-      alert('Please upload an image first');
+      toast.error('Please upload an image first');
       return;
     }
 
@@ -430,6 +432,41 @@ const PuzzleGame = () => {
       }
     }
   };
+
+  const navigate = useNavigate();
+
+  const saveAndExit = async () => {
+    if (!auth.currentUser) return;
+
+    const db = getFirestore();
+    let newGameId = gameId || nanoid(); // Generate new ID if it doesn't exist
+
+    try {
+      const gameRef = doc(db, 'games', newGameId);
+      await setDoc(gameRef, {
+        userId: auth.currentUser.uid,
+        state: 'in_progress',
+        lastUpdated: serverTimestamp(),
+        completedPieces,
+        totalPieces,
+        timeElapsed,
+        imageUrl: image, // Store puzzle image
+        difficulty,
+        puzzlePieces: puzzlePiecesRef.current.map(piece => ({
+          position: piece.position,
+          rotation: piece.rotation,
+          isPlaced: piece.userData.isPlaced,
+        })),
+      });
+
+      toast.success('Game progress saved. You can continue later.');
+      navigate('/home');
+    } catch (error) {
+      console.error('Error saving game progress:', error);
+      toast.error('Failed to save game progress.');
+    }
+  };
+
 
   // const togglePause = () => {
   //   if (gameState === 'playing') {
@@ -498,7 +535,7 @@ const PuzzleGame = () => {
     // Create main grid container
     const gridWidth = gridSize.x * pieceSize.x;
     const gridHeight = gridSize.y * pieceSize.y;
-    
+
     // Create background plane for entire grid
     const gridBackground = new THREE.Mesh(
       new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
@@ -620,7 +657,7 @@ const PuzzleGame = () => {
         });
 
         const piece = new THREE.Mesh(geometry, material);
-        
+
         // Store original position for snapping
         piece.userData.originalPosition = new THREE.Vector3(
           (x - (gridSize.x - 1) / 2) * pieceSize.x,
@@ -656,16 +693,16 @@ const PuzzleGame = () => {
   const arrangePiecesInContainer = (pieces, container, pieceSize) => {
     const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2)); // Increased spacing
     const rows = Math.ceil(pieces.length / cols);
-    
+
     pieces.forEach((piece, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
-      
+
       // Calculate position with more spacing
-      piece.position.x = container.position.x - container.dimensions.width/2 + 
-                        (col + 0.5) * (container.dimensions.width / cols);
-      piece.position.y = container.position.y + container.dimensions.height/2 - 
-                        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.x = container.position.x - container.dimensions.width / 2 +
+        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height / 2 -
+        (row + 0.5) * (container.dimensions.height / rows);
       piece.position.z = 0.01; // Slightly raised to avoid z-fighting
     });
   };
@@ -1377,178 +1414,185 @@ const PuzzleGame = () => {
   };
 
   return (
-<div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800 overflow-hidden">
-  {/* Top Navigation Bar */}
-  <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-    {/* Logo/Title and Game Controls */}
-    <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
-      {/* Logo/Title */}
-      <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
-        Cultural Puzzle
-      </h1>
+    <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800 overflow-hidden">
+      {/* Top Navigation Bar */}
+      <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+        {/* Logo/Title and Game Controls */}
+        <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
+          {/* Logo/Title */}
+          <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
+            Cultural Puzzle
+          </h1>
 
-      {/* Game Controls */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setShowImageSelection(true)}
-          className="px-3 sm:px-4 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base"
-        >
-          <Image className="w-4 h-4" />
-          <span>Select Image</span>
-        </button>
+          {/* Game Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowImageSelection(true)}
+              className="px-3 sm:px-4 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base"
+            >
+              <Image className="w-4 h-4" />
+              <span>Select Image</span>
+            </button>
 
-        {/* Timer Display */}
-        <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
-          <Clock className="w-4 h-4 text-blue-400" />
-          <span className="text-white font-mono text-sm sm:text-base">
-            {formatTime(timeElapsed)}
-          </span>
+            <button
+              onClick={saveAndExit}
+              className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+              title="Save and Exit"
+            >
+              <FaSignOutAlt className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
+            {/* Timer Display */}
+            <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <span className="text-white font-mono text-sm sm:text-base">
+                {formatTime(timeElapsed)}
+              </span>
+            </div>
+
+            {/* Difficulty Bar */}
+            <DifficultyBar
+              selectedDifficulty={selectedDifficulty}
+              onSelect={handleDifficultyChange}
+            />
+
+            {/* Pause/Play Button */}
+            {gameState !== 'initial' && (
+              <button
+                onClick={togglePause}
+                className="p-1 sm:p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                {gameState === 'playing' ? <Pause /> : <Play />}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Difficulty Bar */}
-        <DifficultyBar
-          selectedDifficulty={selectedDifficulty}
-          onSelect={handleDifficultyChange}
-        />
+        {/* Game Stats */}
+        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-normal">
+          {/* Timer Display (Duplicate for mobile layout) */}
+          <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
+            <Clock className="w-4 h-4 text-blue-400" />
+            <span className="text-white font-mono text-sm sm:text-base">
+              {formatTime(timeElapsed)}
+            </span>
+          </div>
 
-        {/* Pause/Play Button */}
-        {gameState !== 'initial' && (
+          {/* Progress Bar */}
+          {totalPieces > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-gray-400 hidden sm:block">Progress</div>
+              <div className="w-24 sm:w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="text-white font-medium text-sm sm:text-base">
+                {Math.round(progress)}%
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Game Area */}
+      <div className="flex-1 relative overflow-hidden">
+        <div ref={containerRef} className="w-full h-full" />
+
+        {/* Side Controls */}
+        <div className="absolute right-2 sm:right-6 top-2 sm:top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
           <button
-            onClick={togglePause}
-            className="p-1 sm:p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            onClick={handleZoomIn}
+            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+            title="Zoom In"
           >
-            {gameState === 'playing' ? <Pause /> : <Play />}
+            <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-        )}
-      </div>
-    </div>
+          <button
+            onClick={handleZoomOut}
+            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+            title="Zoom Out"
+          >
+            <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          <div className="w-full h-px bg-gray-700 my-1" />
+          <button
+            onClick={handleResetView}
+            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+            title="Reset View"
+          >
+            <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          <button
+            onClick={handleResetGame}
+            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
+            title="Reset Puzzle"
+          >
+            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          <div className="w-full h-px bg-gray-700 my-1" />
+          <button
+            onClick={() => setShowThumbnail(!showThumbnail)}
+            className={`p-2 text-white rounded transition-colors ${showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
+              }`}
+            title="Toggle Reference Image"
+          >
+            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
 
-    {/* Game Stats */}
-    <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-normal">
-      {/* Timer Display (Duplicate for mobile layout) */}
-      <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
-        <Clock className="w-4 h-4 text-blue-400" />
-        <span className="text-white font-mono text-sm sm:text-base">
-          {formatTime(timeElapsed)}
-        </span>
-      </div>
-
-      {/* Progress Bar */}
-      {totalPieces > 0 && (
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-400 hidden sm:block">Progress</div>
-          <div className="w-24 sm:w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-              style={{ width: `${progress}%` }}
+        {/* Reference Image */}
+        {showThumbnail && image && (
+          <div className="absolute left-2 sm:left-6 top-2 sm:top-6 p-2 sm:p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
+            <img
+              src={image}
+              alt="Reference"
+              className="w-32 sm:w-48 h-auto rounded border border-gray-700"
             />
           </div>
-          <div className="text-white font-medium text-sm sm:text-base">
-            {Math.round(progress)}%
+        )}
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <div className="text-xl text-white font-medium">Loading puzzle...</div>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  </div>
-
-  {/* Main Game Area */}
-  <div className="flex-1 relative overflow-hidden">
-    <div ref={containerRef} className="w-full h-full" />
-
-    {/* Side Controls */}
-    <div className="absolute right-2 sm:right-6 top-2 sm:top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
-      <button
-        onClick={handleZoomIn}
-        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-        title="Zoom In"
-      >
-        <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
-      </button>
-      <button
-        onClick={handleZoomOut}
-        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-        title="Zoom Out"
-      >
-        <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
-      </button>
-      <div className="w-full h-px bg-gray-700 my-1" />
-      <button
-        onClick={handleResetView}
-        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-        title="Reset View"
-      >
-        <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
-      </button>
-      <button
-        onClick={handleResetGame}
-        className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-        title="Reset Puzzle"
-      >
-        <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-      </button>
-      <div className="w-full h-px bg-gray-700 my-1" />
-      <button
-        onClick={() => setShowThumbnail(!showThumbnail)}
-        className={`p-2 text-white rounded transition-colors ${
-          showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
-        }`}
-        title="Toggle Reference Image"
-      >
-        <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-      </button>
-    </div>
-
-    {/* Reference Image */}
-    {showThumbnail && image && (
-      <div className="absolute left-2 sm:left-6 top-2 sm:top-6 p-2 sm:p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
-        <img
-          src={image}
-          alt="Reference"
-          className="w-32 sm:w-48 h-auto rounded border border-gray-700"
-        />
+        )}
       </div>
-    )}
 
-    {/* Loading Overlay */}
-    {loading && (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <div className="text-xl text-white font-medium">Loading puzzle...</div>
-        </div>
-      </div>
-    )}
-  </div>
+      {/* Image Selection Modal */}
+      <ImageSelectionModal
+        images={PRESET_IMAGES}
+        onSelect={(img) => {
+          setImage(img.src);
+          createPuzzlePieces(img.src).then(() => {
+            setLoading(false);
+            setGameState('playing');
+            setIsTimerRunning(true);
+            setCompletedPieces(0);
+            setProgress(0);
+            setTimeElapsed(0);
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+          });
+        }}
+        isOpen={showImageSelection}
+        onClose={() => setShowImageSelection(false)}
+      />
+      <UpgradeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpgrade={() => navigate("/payment-plans")}
+      />
 
-  {/* Image Selection Modal */}
-  <ImageSelectionModal
-    images={PRESET_IMAGES}
-    onSelect={(img) => {
-      setImage(img.src);
-      createPuzzlePieces(img.src).then(() => {
-        setLoading(false);
-        setGameState('playing');
-        setIsTimerRunning(true);
-        setCompletedPieces(0);
-        setProgress(0);
-        setTimeElapsed(0);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      });
-    }}
-    isOpen={showImageSelection}
-    onClose={() => setShowImageSelection(false)}
-  />
-  <UpgradeModal
-    isOpen={isModalOpen}
-    onClose={() => setIsModalOpen(false)}
-    onUpgrade={() => navigate("/payment-plans")}
-  />
-
-  {/* Share Modal */}
-  {showShareModal && <ShareModal />}
-</div>
+      {/* Share Modal */}
+      {showShareModal && <ShareModal />}
+    </div>
   );
 };
 

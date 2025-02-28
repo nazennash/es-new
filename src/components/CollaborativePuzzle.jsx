@@ -291,11 +291,11 @@ const CollaborativePuzzle = () => {
 
   const puzzleTypes = [
     { id: 'classic', icon: <Gamepad2 size={20} />, label: 'Classic', emoji: '🎮' },
-    { id: 'cube', icon: <Box size={20} />, label: 'Cube', emoji: '🎲' },
-    { id: 'sphere', icon: <Globe2 size={20} />, label: 'Sphere', emoji: '🌐' },
-    { id: 'pyramid', icon: <Triangle size={20} />, label: 'Pyramid', emoji: '🔺' },
-    { id: 'cylinder', icon: <Cylinder size={20} />, label: 'Cylinder', emoji: '🗞️' },
-    { id: 'tower', icon: <Castle size={20} />, label: 'Tower', emoji: '🏰' }
+    // { id: 'cube', icon: <Box size={20} />, label: 'Cube', emoji: '🎲' },
+    // { id: 'sphere', icon: <Globe2 size={20} />, label: 'Sphere', emoji: '🌐' },
+    // { id: 'pyramid', icon: <Triangle size={20} />, label: 'Pyramid', emoji: '🔺' },
+    // { id: 'cylinder', icon: <Cylinder size={20} />, label: 'Cylinder', emoji: '🗞️' },
+    // { id: 'tower', icon: <Castle size={20} />, label: 'Tower', emoji: '🏰' }
   ];
 
   // Lobby UI
