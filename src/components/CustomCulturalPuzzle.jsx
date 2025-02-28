@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X } from 'lucide-react';
+import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X, RefreshCw } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { auth, nanoid } from '../firebase';
 import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -26,7 +26,7 @@ import { FaSignOutAlt } from 'react-icons/fa';
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
   easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
-  medium: { grid: { x: 5, y: 4 }, snapDistance: 0.3, rotationEnabled: true },
+  medium: { grid: { x: 5, y: 4 }, snapDistance: 3, rotationEnabled: true },
   hard: { grid: { x: 6, y: 5 }, snapDistance: 0.2, rotationEnabled: true },
   expert: { grid: { x: 8, y: 6 }, snapDistance: 0.15, rotationEnabled: true }
 };
@@ -223,30 +223,25 @@ const puzzlePieceShader = {
       vec4 texColor = texture2D(map, vUv);
       vec3 normal = normalize(vNormal);
       
-      // Enhanced lighting calculation for bas relief
       vec3 viewDir = normalize(vViewPosition);
       vec3 lightDir = normalize(vec3(5.0, 5.0, 5.0));
       
-      // Ambient light
       float ambient = 0.3;
-      
-      // Diffuse lighting
       float diff = max(dot(normal, lightDir), 0.0);
       float diffuse = diff * 0.7;
       
-      // Specular lighting for metallic effect
       vec3 reflectDir = reflect(-lightDir, normal);
       float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
       float specular = spec * 0.3;
       
-      // Combine lighting components
       vec3 lighting = vec3(ambient + diffuse + specular);
       
+      // Remove the continuous flashing, only show static highlight
       vec3 highlightColor = vec3(0.3, 0.6, 1.0);
-      float highlightStrength = selected * 0.5 * (0.5 + 0.5 * sin(time * 3.0));
+      float highlightStrength = selected * 0.3;
       
       vec3 correctColor = vec3(0.2, 1.0, 0.3);
-      float correctStrength = correctPosition * 0.5 * (0.5 + 0.5 * sin(time * 2.0));
+      float correctStrength = correctPosition * 0.3;
       
       vec3 finalColor = texColor.rgb * lighting;
       finalColor += highlightColor * highlightStrength + correctColor * correctStrength;
@@ -1593,8 +1588,24 @@ const PuzzleGame = () => {
       {/* Share Modal */}
       {showShareModal && <ShareModal />}
     </div>
+      {/* Share Modal */}
+      {showShareModal && <ShareModal />}
+    </div>
   );
-};
+}; // Add missing closing brace for PuzzleGame component
+
+// Add the ControlButton component as a separate component
+const ControlButton = ({ icon, onClick, tooltip, active = false }) => (
+  <button
+    onClick={onClick}
+    className={`p-2 rounded transition-all transform hover:scale-110 ${
+      active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+    }`}
+    title={tooltip}
+  >
+    {icon}
+  </button>
+);
 
 // 7. Export
 export default PuzzleGame;
