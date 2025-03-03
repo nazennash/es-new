@@ -668,97 +668,105 @@ const PuzzleGame = () => {
   const createPuzzlePieces = async (imageUrl) => {
     if (!sceneRef.current) return;
 
-    // Clear existing pieces
-    puzzlePiecesRef.current.forEach(piece => {
-      sceneRef.current.remove(piece);
-    });
-    puzzlePiecesRef.current = [];
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Clear existing pieces
+        puzzlePiecesRef.current.forEach(piece => {
+          sceneRef.current.remove(piece);
+        });
+        puzzlePiecesRef.current = [];
 
-    // Create containers first
-    Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
-      const containerGeometry = new THREE.PlaneGeometry(
-        layout.dimensions.width,
-        layout.dimensions.height
-      );
-      const containerMaterial = new THREE.MeshBasicMaterial({
-        color: layout.color,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-      });
-      const container = new THREE.Mesh(containerGeometry, containerMaterial);
-      container.position.set(layout.position.x, layout.position.y, -0.1);
-      container.userData.isContainer = true;
-      container.userData.side = side;
-      sceneRef.current.add(container);
-    });
-
-    const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-    const aspectRatio = texture.image.width / texture.image.height;
-    const baseSize = 3.5;
-    const gridSize = selectedDifficulty.grid;
-    const pieceSize = {
-      x: (baseSize * aspectRatio) / gridSize.x,
-      y: baseSize / gridSize.y
-    };
-
-    setTotalPieces(gridSize.x * gridSize.y);
-    createPlacementGuides(gridSize, pieceSize);
-
-    // Create pieces array first
-    const pieces = [];
-    for (let y = 0; y < gridSize.y; y++) {
-      for (let x = 0; x < gridSize.x; x++) {
-        const geometry = new THREE.PlaneGeometry(
-          pieceSize.x * 0.98,
-          pieceSize.y * 0.98,
-          32,
-          32
-        );
-
-        const material = new THREE.ShaderMaterial({
-          uniforms: {
-            map: { value: texture },
-            heightMap: { value: texture },
-            uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
-            uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
-            depth: { value: 0.2 },
-            selected: { value: 0.0 },
-            correctPosition: { value: 0.0 },
-            time: { value: 0.0 }
-          },
-          vertexShader: puzzlePieceShader.vertexShader,
-          fragmentShader: puzzlePieceShader.fragmentShader,
-          side: THREE.DoubleSide
+        // Create containers first
+        Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
+          const containerGeometry = new THREE.PlaneGeometry(
+            layout.dimensions.width,
+            layout.dimensions.height
+          );
+          const containerMaterial = new THREE.MeshBasicMaterial({
+            color: layout.color,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+          });
+          const container = new THREE.Mesh(containerGeometry, containerMaterial);
+          container.position.set(layout.position.x, layout.position.y, -0.1);
+          container.userData.isContainer = true;
+          container.userData.side = side;
+          sceneRef.current.add(container);
         });
 
-        const piece = new THREE.Mesh(geometry, material);
-        piece.userData.originalPosition = new THREE.Vector3(
-          (x - (gridSize.x - 1) / 2) * pieceSize.x,
-          (y - (gridSize.y - 1) / 2) * pieceSize.y,
-          0
-        );
-        piece.userData.gridPosition = { x, y };
-        piece.userData.isPlaced = false;
+        const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
+        const aspectRatio = texture.image.width / texture.image.height;
+        const baseSize = 3.5;
+        const gridSize = selectedDifficulty.grid;
+        const pieceSize = {
+          x: (baseSize * aspectRatio) / gridSize.x,
+          y: baseSize / gridSize.y
+        };
 
-        pieces.push(piece);
+        setTotalPieces(gridSize.x * gridSize.y);
+        createPlacementGuides(gridSize, pieceSize);
+
+        // Create pieces array first
+        const pieces = [];
+        for (let y = 0; y < gridSize.y; y++) {
+          for (let x = 0; x < gridSize.x; x++) {
+            const geometry = new THREE.PlaneGeometry(
+              pieceSize.x * 0.98,
+              pieceSize.y * 0.98,
+              32,
+              32
+            );
+
+            const material = new THREE.ShaderMaterial({
+              uniforms: {
+                map: { value: texture },
+                heightMap: { value: texture },
+                uvOffset: { value: new THREE.Vector2(x / gridSize.x, y / gridSize.y) },
+                uvScale: { value: new THREE.Vector2(1 / gridSize.x, 1 / gridSize.y) },
+                depth: { value: 0.2 },
+                selected: { value: 0.0 },
+                correctPosition: { value: 0.0 },
+                time: { value: 0.0 }
+              },
+              vertexShader: puzzlePieceShader.vertexShader,
+              fragmentShader: puzzlePieceShader.fragmentShader,
+              side: THREE.DoubleSide
+            });
+
+            const piece = new THREE.Mesh(geometry, material);
+            piece.userData.originalPosition = new THREE.Vector3(
+              (x - (gridSize.x - 1) / 2) * pieceSize.x,
+              (y - (gridSize.y - 1) / 2) * pieceSize.y,
+              0
+            );
+            piece.userData.gridPosition = { x, y };
+            piece.userData.isPlaced = false;
+
+            pieces.push(piece);
+          }
+        }
+
+        // Distribute pieces between containers
+        const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
+        const halfLength = Math.ceil(shuffledPieces.length / 2);
+        const leftPieces = shuffledPieces.slice(0, halfLength);
+        const rightPieces = shuffledPieces.slice(halfLength);
+
+        // Arrange pieces in containers
+        arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+        arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+
+        // Add all pieces to scene and reference array
+        pieces.forEach(piece => {
+          sceneRef.current.add(piece);
+          puzzlePiecesRef.current.push(piece);
+        });
+
+        resolve();
+      } catch (error) {
+        reject(error);
       }
-    }
-
-    // Distribute pieces between containers
-    const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
-    const halfLength = Math.ceil(shuffledPieces.length / 2);
-    const leftPieces = shuffledPieces.slice(0, halfLength);
-    const rightPieces = shuffledPieces.slice(halfLength);
-
-    // Arrange pieces in containers
-    arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-    arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
-
-    // Add all pieces to scene and reference array
-    pieces.forEach(piece => {
-      sceneRef.current.add(piece);
-      puzzlePiecesRef.current.push(piece);
     });
   };
 
@@ -1190,26 +1198,43 @@ const PuzzleGame = () => {
   );
 
   // Add this handler
-  const handleDifficultyChange = (newDifficulty) => {
-    if (gameState === 'playing') {
-      const confirmChange = window.confirm('Changing difficulty will reset the current puzzle. Continue?');
-      if (!confirmChange) return;
-    }
-
+  const handleDifficultyChange = async (newDifficulty) => {
+    // Show loading toast
+    toast.loading('Changing difficulty level...', {
+      id: 'difficulty-change',
+      duration: 1000,
+    });
+    
+    // Update state first
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
+    
+    // Only recreate puzzle if there's an image
     if (image) {
       setLoading(true);
-      createPuzzlePieces(image).then(() => {
-        setLoading(false);
+      try {
+        // Wait for piece creation to complete
+        await createPuzzlePieces(image);
+        // Reset game state after pieces are created
         setGameState('playing');
         setIsTimerRunning(true);
         setCompletedPieces(0);
         setProgress(0);
         setTimeElapsed(0);
-      });
+        
+        // Show success toast
+        toast.success(`Difficulty changed to ${newDifficulty.name}`, {
+          id: 'difficulty-change',
+        });
+      } catch (error) {
+        console.error('Error creating puzzle pieces:', error);
+        toast.error('Failed to change difficulty', {
+          id: 'difficulty-change',
+        });
+      } finally {
+        setLoading(false);
+      }
     }
-    setShowDifficultyModal(false);
   };
 
   // Add this function inside the component
@@ -1230,88 +1255,78 @@ const PuzzleGame = () => {
   // Modify the completion effect
   useEffect(() => {
     if (progress === 100 && auth?.currentUser) {
-      // const completionData = {
-      //   puzzleId: `custom_${Date.now()}`,
-      //   userId: auth.currentUser.uid,
-      //   playerName: auth.currentUser.email || 'Anonymous',
-      //   startTime,
-      //   difficulty,
-      //   imageUrl: image,
-      //   timer: timeElapsed,
-      //   completedAt: new Date(),
-      //   totalPieces,
-      //   completedPieces
-      // };
-
       const completionData = {
         puzzleId: `custom_${Date.now()}`,
         userId: auth.currentUser.uid,
         playerName: auth.currentUser.email || 'Anonymous',
         startTime: startTime,
-        difficulty,
+        difficulty: selectedDifficulty.id, // Use selectedDifficulty instead of difficulty
         imageUrl: image,
         timer: timeElapsed,
+        isPremium: isPremium, // Add premium status
+        completedAt: serverTimestamp()
       };
 
-      console.log('Data sent to handlePuzzleCompletion:', completionData);
-      handlePuzzleCompletion(completionData);
-      // await handlePuzzleCompletion(completionData);
+      // Handle puzzle completion
+      handlePuzzleCompletion(completionData).then(() => {
+        // Check achievements after completion
+        const achievements = checkAchievements();
+        setCompletedAchievements(achievements);
 
-      // console.log('Puzzle Completion Data:', completionData);
-      // handlePuzzleCompletionCustom(completionData);
+        // Update game state if in multiplayer
+        if (gameId) {
+          updateGameState({
+            state: 'completed',
+            completionTime: timeElapsed,
+            achievements: achievements.map(a => a.id)
+          });
+        }
 
-      // Log achievement data
-      const achievements = checkAchievements();
-      console.log('Achievements Earned:', achievements);
+        // Show share modal
+        setShowShareModal(true);
 
-      // Update game state
-      if (gameId) {
-        const gameUpdateData = {
-          state: 'completed',
-          completionTime: timeElapsed,
-          achievements: achievements.map(a => a.id)
-        };
-        console.log('Game State Update:', gameUpdateData);
-        updateGameState(gameUpdateData);
-      }
-    }
-  }, [progress, startTime, difficulty, image, timeElapsed, totalPieces, completedPieces]);
+        // Play completion sound
+        soundRef.current?.play('complete');
 
-  // Add synchronous completion handler
-  const synchronousCompletion = async () => {
-    try {
-      console.log('Starting synchronous completion process...');
-
-      // Wait for puzzle completion
-      await handlePuzzleCompletionCustom({
-        puzzleId: `custom_${Date.now()}`,
-        userId: auth?.currentUser?.uid,
-        playerName: auth?.currentUser?.displayName || 'Anonymous',
-        startTime,
-        difficulty,
-        imageUrl: image,
-        timer: timeElapsed
+        // Check puzzle limits for free users
+        if (!isPremium) {
+          checkPuzzleLimits();
+        }
+      }).catch(error => {
+        console.error('Error handling puzzle completion:', error);
+        toast.error('Failed to save puzzle completion');
       });
+    }
+  }, [progress, auth.currentUser, startTime, selectedDifficulty, image, timeElapsed, isPremium, gameId]);
 
-      // Wait for achievements check
-      const achievements = checkAchievements();
-      console.log('Processing achievements:', achievements);
+  // Add puzzle limit checking
+  const checkPuzzleLimits = async () => {
+    const db = getFirestore();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Wait for game state update
-      if (gameId) {
-        await updateGameState({
-          state: 'completed',
-          completionTime: timeElapsed,
-          achievements: achievements.map(a => a.id)
-        });
+    const q = query(
+      collection(db, 'completed_puzzles'),
+      where('userId', '==', auth.currentUser?.uid),
+      where('completedAt', '>=', startOfMonth)
+    );
+
+    try {
+      const querySnapshot = await getDocs(q);
+      const puzzleCount = querySnapshot.size;
+
+      if (puzzleCount === 1) {
+        toast.success("You've completed 1 puzzle this month. You have 1 more puzzle left!");
+      } else if (puzzleCount >= 2) {
+        toast.error("You've reached your monthly limit for creating custom puzzles. Upgrade to Premium to create more!");
+        setIsModalOpen(true);
       }
-
-      console.log('Completion process finished successfully');
-      setShowShareModal(true);
     } catch (error) {
-      console.error('Error in completion process:', error);
+      console.error('Error checking puzzle limits:', error);
     }
   };
+
+  // Remove the old synchronousCompletion function as it's no longer needed
 
   // Add sound initialization
   useEffect(() => {
@@ -1370,7 +1385,7 @@ const PuzzleGame = () => {
     }
 
     // Persistent achievement
-    if (difficulty === 'expert') {
+    if (selectedDifficulty.id === 'expert') {
       achievements.push(ACHIEVEMENTS.find(a => a.id === 'persistent'));
     }
 
