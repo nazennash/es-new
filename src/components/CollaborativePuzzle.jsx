@@ -224,7 +224,8 @@ const CollaborativePuzzle = () => {
 
   const handleFacebookShare = () => {
     const text = encodeURIComponent(`Hey! Join my puzzle game: ${inviteLink}`);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${text}`);
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${text}`;
+    window.open(url, '_blank');
   };
 
   const handleTwitterShare = () => {

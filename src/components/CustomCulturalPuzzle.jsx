@@ -1588,24 +1588,19 @@ const PuzzleGame = () => {
       {/* Share Modal */}
       {showShareModal && <ShareModal />}
     </div>
-      {/* Share Modal */}
-      {showShareModal && <ShareModal />}
-    </div>
   );
-}; // Add missing closing brace for PuzzleGame component
+}; 
 
 // Add the ControlButton component as a separate component
 const ControlButton = ({ icon, onClick, tooltip, active = false }) => (
   <button
     onClick={onClick}
-    className={`p-2 rounded transition-all transform hover:scale-110 ${
-      active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-    }`}
+    className={`p-2 rounded transition-all transform hover:scale-110 ${active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+      }`}
     title={tooltip}
   >
     {icon}
   </button>
 );
 
-// 7. Export
 export default PuzzleGame;
