@@ -173,27 +173,36 @@ const CollaborativePuzzle = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onerror = () => {
-      toast.error('Failed to read image file');
-    };
+    try {
+      // Create a promise to handle image loading
+      const imageDataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(new Error('Failed to read image file'));
+        reader.readAsDataURL(file);
+      });
 
-    reader.onload = async (e) => {
-      try {
-        const imageData = e.target.result;
-        await update(ref(database, `games/${actualGameId}`), {
-          image: imageData,
-          uploadedAt: Date.now()
-        });
-        setImage(imageData);
-        toast.success('Image uploaded successfully');
-      } catch (error) {
-        console.error('Image upload error:', error);
-        toast.error('Failed to upload image');
-      }
-    };
+      // Pre-load the image to ensure it's valid
+      await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = () => reject(new Error('Invalid image file'));
+        img.src = imageDataUrl;
+      });
 
-    reader.readAsDataURL(file);
+      // Update game state with the image
+      await update(ref(database, `games/${actualGameId}`), {
+        image: imageDataUrl,
+        uploadedAt: Date.now()
+      });
+
+      setImage(imageDataUrl);
+      toast.success('Image uploaded successfully');
+      
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image: ' + error.message);
+    }
   };
 
   // Add puzzle type synchronization

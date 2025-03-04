@@ -591,147 +591,110 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const createPuzzlePieces = async (imageUrl, puzzleType = 'classic') => {
     if (!sceneRef.current) return;
   
-    // Clear existing pieces
-    puzzlePiecesRef.current.forEach(piece => {
-      if (piece.geometry) piece.geometry.dispose();
-      if (piece.material) piece.material.dispose();
-      if (piece.parent) piece.parent.remove(piece);
-    });
-    puzzlePiecesRef.current = [];
-  
-    // Create containers first (only for 2D puzzles)
-    if (puzzleType === 'classic') {
-      Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
-        const containerGeometry = new THREE.PlaneGeometry(
-          layout.dimensions.width,
-          layout.dimensions.height
-        );
-        const containerMaterial = new THREE.MeshBasicMaterial({
-          color: layout.color,
-          transparent: true,
-          opacity: 0.3,
-          side: THREE.DoubleSide
-        });
-        const container = new THREE.Mesh(containerGeometry, containerMaterial);
-        container.position.set(layout.position.x, layout.position.y, -0.1);
-        container.userData.isContainer = true;
-        container.userData.side = side;
-        sceneRef.current.add(container);
-      });
-    }
-  
     try {
-      const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-      const puzzleSettings = PUZZLE_TYPES[puzzleType].settings;
-      const imageAspectRatio = texture.image.width / texture.image.height;
-      const targetAspectRatio = puzzleSettings.aspectRatio;
-      
-      // Calculate piece sizes based on aspect ratio
-      const baseSize = puzzleSettings.baseSize;
-      let pieceWidth, pieceHeight;
-      
-      if (imageAspectRatio > targetAspectRatio) {
-        // Image is wider than target
-        pieceWidth = baseSize;
-        pieceHeight = baseSize / targetAspectRatio;
-      } else {
-        // Image is taller than target
-        pieceWidth = baseSize * targetAspectRatio;
-        pieceHeight = baseSize;
+      // Clear existing pieces first
+      puzzlePiecesRef.current.forEach(piece => {
+        if (piece.geometry) piece.geometry.dispose();
+        if (piece.material) piece.material.dispose();
+        if (piece.parent) piece.parent.remove(piece);
+      });
+      puzzlePiecesRef.current = [];
+  
+      // Load texture with proper error handling
+      const textureLoader = new THREE.TextureLoader();
+      const texture = await new Promise((resolve, reject) => {
+        textureLoader.load(
+          imageUrl,
+          (loadedTexture) => {
+            loadedTexture.needsUpdate = true;
+            resolve(loadedTexture);
+          },
+          undefined,
+          (error) => reject(new Error(`Failed to load texture: ${error.message}`))
+        );
+      });
+  
+      // Wait for the image to be fully loaded
+      if (!texture.image || !texture.image.complete) {
+        await new Promise((resolve) => {
+          texture.image.onload = resolve;
+        });
       }
   
+      const puzzleSettings = PUZZLE_TYPES[puzzleType].settings;
       const settings = DIFFICULTY_SETTINGS[difficulty];
+      
+      // Calculate proper dimensions
+      const imageAspect = texture.image.width / texture.image.height;
+      const gridAspect = settings.grid.x / settings.grid.y;
+      
+      let pieceWidth, pieceHeight;
+      if (imageAspect > gridAspect) {
+        pieceWidth = 1.0;
+        pieceHeight = (gridAspect / imageAspect);
+      } else {
+        pieceWidth = (imageAspect / gridAspect);
+        pieceHeight = 1.0;
+      }
+  
       const pieceSize = {
         x: pieceWidth / settings.grid.x,
         y: pieceHeight / settings.grid.y
       };
   
+      // Create pieces with proper material setup
       const pieces = [];
       for (let y = 0; y < settings.grid.y; y++) {
         for (let x = 0; x < settings.grid.x; x++) {
-          let geometry;
-          switch (puzzleType) {
-            case 'cube':
-              // Create a cube geometry for 3D cube puzzles
-              geometry = new THREE.BoxGeometry(pieceSize.x, pieceSize.y, pieceSize.x);
-              break;
-            case 'cylinder':
-              // Create a cylinder geometry for 3D cylinder puzzles
-              geometry = new THREE.CylinderGeometry(
-                pieceSize.x / 2, // Radius at the top
-                pieceSize.x / 2, // Radius at the bottom
-                pieceSize.y,      // Height
-                32                // Number of radial segments
-              );
-              break;
-            default:
-              // Default to 2D plane geometry for classic puzzles
-              geometry = new THREE.PlaneGeometry(
-                pieceSize.x * 0.98,
-                pieceSize.y * 0.98,
-                32,
-                32
-              );
-              break;
-          }
+          const geometry = new THREE.PlaneGeometry(
+            pieceSize.x * 0.98,
+            pieceSize.y * 0.98,
+            1,
+            1
+          );
   
           const material = new THREE.ShaderMaterial({
             uniforms: {
               map: { value: texture },
-              heightMap: { value: texture },
               uvOffset: { value: new THREE.Vector2(x / settings.grid.x, y / settings.grid.y) },
               uvScale: { value: new THREE.Vector2(1 / settings.grid.x, 1 / settings.grid.y) },
-              depth: { value: 0.2 },
               selected: { value: 0.0 },
-              correctPosition: { value: 0.0 },
-              time: { value: 0.0 }
+              correctPosition: { value: 0.0 }
             },
             vertexShader: puzzlePieceShader.vertexShader,
             fragmentShader: puzzlePieceShader.fragmentShader,
-            side: THREE.DoubleSide
+            transparent: true
           });
   
           const piece = new THREE.Mesh(geometry, material);
-  
-          // Store original position for snapping
-          piece.userData.originalPosition = new THREE.Vector3(
-            (x - (settings.grid.x - 1) / 2) * pieceSize.x,
-            (y - (settings.grid.y - 1) / 2) * pieceSize.y,
-            0
-          );
-          piece.userData.gridPosition = { x, y };
-          piece.userData.id = `piece_${x}_${y}`;
-          piece.userData.isPlaced = false;
+          
+          // Store piece data
+          piece.userData = {
+            id: `piece_${x}_${y}`,
+            originalPosition: new THREE.Vector3(
+              (x - (settings.grid.x - 1) / 2) * pieceSize.x,
+              (y - (settings.grid.y - 1) / 2) * pieceSize.y,
+              0
+            ),
+            gridPosition: { x, y },
+            isPlaced: false
+          };
   
           pieces.push(piece);
         }
       }
   
-      // Distribute pieces between containers (only for 2D puzzles)
-      if (puzzleType === 'classic') {
-        const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
-        const halfLength = Math.ceil(shuffledPieces.length / 2);
-        const leftPieces = shuffledPieces.slice(0, halfLength);
-        const rightPieces = shuffledPieces.slice(halfLength);
-  
-        // Arrange pieces in containers
-        arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-        arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
-      } else {
-        // For 3D puzzles, scatter pieces randomly in 3D space
-        pieces.forEach(piece => {
-          piece.position.set(
-            (Math.random() - 0.5) * 10, // Random X position
-            (Math.random() - 0.5) * 10, // Random Y position
-            (Math.random() - 0.5) * 10  // Random Z position
-          );
-        });
-      }
-  
-      // Add all pieces to scene and synchronize with other players
+      // Randomly distribute pieces
       pieces.forEach(piece => {
+        piece.position.set(
+          (Math.random() - 0.5) * 4,
+          (Math.random() - 0.5) * 4,
+          0
+        );
         sceneRef.current.add(piece);
         puzzlePiecesRef.current.push(piece);
+  
+        // Sync piece state
         syncPieceState(piece.userData.id, {
           x: piece.position.x,
           y: piece.position.y,
@@ -742,76 +705,15 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       });
   
       setTotalPieces(settings.grid.x * settings.grid.y);
-      if (puzzleType === 'classic') {
-        createPlacementGuides(settings.grid, pieceSize);
-      }
+      createPlacementGuides(settings.grid, pieceSize);
       setLoading(false);
+  
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);
       toast.error('Failed to create puzzle pieces');
       setLoading(false);
     }
   };
-  
-  // const createPlacementGuides = (gridSize, pieceSize) => {
-  //   guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
-  //   guideOutlinesRef.current = [];
-  
-  //   // Create main grid container
-  //   const gridWidth = gridSize.x * pieceSize.x;
-  //   const gridHeight = gridSize.y * pieceSize.y;
-    
-  //   // Create background plane for entire grid
-  //   const gridBackground = new THREE.Mesh(
-  //     new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
-  //     new THREE.MeshBasicMaterial({
-  //       color: GRID_STYLE.secondaryColor,
-  //       transparent: true,
-  //       opacity: 0.2
-  //     })
-  //   );
-  //   gridBackground.position.z = -0.02;
-  //   sceneRef.current.add(gridBackground);
-  //   guideOutlinesRef.current.push(gridBackground);
-  
-  //   // Create individual cell outlines
-  //   for (let y = 0; y < gridSize.y; y++) {
-  //     for (let x = 0; x < gridSize.x; x++) {
-  //       // Create cell background with alternating colors
-  //       const isAlternate = (x + y) % 2 === 0;
-  //       const cellGeometry = new THREE.PlaneGeometry(pieceSize.x * 0.98, pieceSize.y * 0.98);
-  //       const cellMaterial = new THREE.MeshBasicMaterial({
-  //         color: isAlternate ? GRID_STYLE.primaryColor : GRID_STYLE.secondaryColor,
-  //         transparent: true,
-  //         opacity: 0.15
-  //       });
-  //       const cell = new THREE.Mesh(cellGeometry, cellMaterial);
-  
-  //       // Position the cell
-  //       cell.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
-  //       cell.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
-  //       cell.position.z = -0.015;
-  
-  //       sceneRef.current.add(cell);
-  //       guideOutlinesRef.current.push(cell);
-  
-  //       // Create cell outline
-  //       const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
-  //       const outlineMaterial = new THREE.LineBasicMaterial({
-  //         color: GRID_STYLE.primaryColor,
-  //         transparent: true,
-  //         opacity: GRID_STYLE.opacity,
-  //         linewidth: GRID_STYLE.lineWidth
-  //       });
-  //       const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-  //       outline.position.copy(cell.position);
-  //       outline.position.z = -0.01;
-  
-  //       sceneRef.current.add(outline);
-  //       guideOutlinesRef.current.push(outline);
-  //     }
-  //   }
-  // };
   
   const handlePieceSnap = (piece, particleSystem) => {
     const originalPos = piece.userData.originalPosition;
