@@ -19,6 +19,7 @@ const CollaborativePuzzle = () => {
   const [inviteLink, setInviteLink] = useState('');
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [puzzleType, setPuzzleType] = useState('classic');
+  const [joinLink, setJoinLink] = useState('');
 
   const DIFFICULTY_SETTINGS = {
     easy: { grid: { x: 3, y: 2 }, snapDistance: 0.4, rotationEnabled: false },
@@ -323,6 +324,21 @@ const CollaborativePuzzle = () => {
     window.open(`https://www.instagram.com/?url=${encodeURIComponent(inviteLink)}`);
   };
 
+  // Add new handler for joining via link
+  const handleJoinByLink = (e) => {
+    e.preventDefault();
+    const linkPattern = /join_([a-zA-Z0-9_-]+)$/;
+    const match = joinLink.match(linkPattern);
+    
+    if (!match) {
+      toast.error('Invalid game link');
+      return;
+    }
+
+    const gameId = match[1];
+    navigate(`/puzzle/multiplayer/join_${gameId}`);
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -463,6 +479,32 @@ const CollaborativePuzzle = () => {
             )}
           </div>
         </div>
+
+        {/* Join by Link Section - Only show when not hosting */}
+        {!isHost && !gameId && (
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-4 md:p-6 mb-8">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Share2 className="w-6 h-6 text-blue-400" />
+              Join by Link
+            </h2>
+            <form onSubmit={handleJoinByLink} className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={joinLink}
+                onChange={(e) => setJoinLink(e.target.value)}
+                placeholder="Paste invite link here..."
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Play className="w-5 h-5" />
+                <span>Join Game</span>
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Game Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
