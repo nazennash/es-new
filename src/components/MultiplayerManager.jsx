@@ -884,40 +884,62 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const handlePieceSnap = (piece, particleSystem) => {
     const originalPos = piece.userData.originalPosition;
     const originalRot = new THREE.Euler(0, 0, 0);
-    const duration = 0.3;
+    const duration = 0.5; // Increased duration for smoother animation
     const startPos = piece.position.clone();
     const startRot = piece.rotation.clone();
     const startTime = Date.now();
   
-    // Play snap sound and show particles before animation
+    // Play snap sound
+    const snapSound = new Audio('/sounds/snap.mp3');
+    snapSound.volume = 0.3;
+    snapSound.play();
+  
+    // Initial particle burst
     if (particleSystem) {
-      particleSystem.emit(piece.position, 30, new THREE.Color(0x4a90e2));
+      particleSystem.emit(piece.position, 15, new THREE.Color(0x4a90e2));
     }
   
     const animate = () => {
       const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
-      const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+      
+      // Custom easing function for more natural movement
+      const easeProgress = 1 - Math.pow(1 - progress, 4); // Quartic ease-out
   
-      // Position interpolation
-      piece.position.lerpVectors(startPos, originalPos, easeProgress);
+      // Position interpolation with slight bounce
+      const bounceStrength = 0.05;
+      const bounceOffset = Math.sin(progress * Math.PI) * bounceStrength;
+      const currentPos = new THREE.Vector3();
+      currentPos.lerpVectors(startPos, originalPos, easeProgress);
+      currentPos.z += bounceOffset;
+      piece.position.copy(currentPos);
   
-      // Rotation interpolation
+      // Rotation interpolation with slight wobble
+      const wobbleStrength = 0.1;
+      const wobbleOffset = Math.sin(progress * Math.PI * 2) * wobbleStrength * (1 - progress);
       piece.rotation.x = THREE.MathUtils.lerp(startRot.x, originalRot.x, easeProgress);
       piece.rotation.y = THREE.MathUtils.lerp(startRot.y, originalRot.y, easeProgress);
-      piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z, easeProgress);
+      piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z + wobbleOffset, easeProgress);
+  
+      // Add particles during animation
+      if (particleSystem && progress < 0.7 && progress % 0.1 < 0.02) {
+        particleSystem.emit(piece.position, 2, new THREE.Color(0x4a90e2));
+      }
   
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Ensure final position and rotation are exact
+        // Snap to final position
         piece.position.copy(originalPos);
         piece.rotation.copy(originalRot);
-        
-        // Update piece state
         piece.userData.isPlaced = true;
         piece.material.uniforms.correctPosition.value = 1.0;
-        
-        // Sync final state with other players
+  
+        // Final particle burst
+        if (particleSystem) {
+          particleSystem.emit(piece.position, 20, new THREE.Color(0x00ff00));
+        }
+  
+        // Sync with other players
         syncPieceState(piece.userData.id, {
           x: originalPos.x,
           y: originalPos.y,
@@ -927,27 +949,26 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         });
   
         // Update completion progress
-        setCompletedPieces(prev => {
-          const newCount = prev + 1;
-          const newProgress = (newCount / totalPieces) * 100;
-          setProgress(newProgress);
-          updateProgress(newProgress);
-          
-          // Check for puzzle completion
-          if (newProgress === 100) {
-            handleGameCompletion();
-          }
-          return newCount;
-        });
-  
-        // Show completion particles
-        if (particleSystem) {
-          particleSystem.emit(piece.position, 20, new THREE.Color(0x00ff00));
-        }
+        handlePieceCompletion();
       }
     };
   
     animate();
+  };
+  
+  const isNearSnapPosition = (piece) => {
+    const originalPos = piece.userData.originalPosition;
+    const currentPos = piece.position;
+    const distance = originalPos.distanceTo(currentPos);
+    const snapThreshold = DIFFICULTY_SETTINGS[difficulty].snapDistance;
+    
+    // Only allow snapping to the piece's dedicated position
+    return {
+      isNear: distance < snapThreshold,
+      distance: distance,
+      snapPos: originalPos,
+      isCorrectPosition: true // This piece can only snap to its original position
+    };
   };
   
   // Event handlers
@@ -1121,7 +1142,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
     const onMouseMove = (event) => {
       if (!isDragging || !selectedPieceRef.current || !isPlaying) return;
-
+    
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1133,62 +1154,73 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         intersectPoint
       );
     
-      // Update piece position
-      selectedPieceRef.current.position.copy(intersectPoint);
-      
+      const piece = selectedPieceRef.current;
+      const snapInfo = isNearSnapPosition(piece);
+    
+      if (snapInfo.isNear && snapInfo.isCorrectPosition) {
+        // Enhanced magnetic effect when near correct position
+        const snapStrength = Math.pow(1 - (snapInfo.distance / DIFFICULTY_SETTINGS[difficulty].snapDistance), 2);
+        intersectPoint.lerp(snapInfo.snapPos, snapStrength * 0.8);
+        
+        // Visual feedback
+        if (piece.material.uniforms) {
+          piece.material.uniforms.correctPosition.value = snapStrength * 0.5;
+        }
+      } else {
+        // Reset visual feedback when not near snap position
+        if (piece.material.uniforms) {
+          piece.material.uniforms.correctPosition.value = 0;
+        }
+      }
+    
+      // Update piece position with smooth interpolation
+      piece.position.lerp(intersectPoint, 0.8);
+    
       // Sync position with other players
-      updatePiecePosition(selectedPieceRef.current.userData.id, {
-        x: intersectPoint.x,
-        y: intersectPoint.y,
-        z: intersectPoint.z,
-        rotation: selectedPieceRef.current.rotation.z,
+      updatePiecePosition(piece.userData.id, {
+        x: piece.position.x,
+        y: piece.position.y,
+        z: piece.position.z,
+        rotation: piece.rotation.z,
         lastUpdatedBy: user.uid
       });
-    
-      // Check for snapping preview
-      const originalPos = selectedPieceRef.current.userData.originalPosition;
-      const distance = originalPos.distanceTo(selectedPieceRef.current.position);
-      const rotationDiff = Math.abs(selectedPieceRef.current.rotation.z % (Math.PI * 2));
-    
-      // Update shader feedback
-      if (selectedPieceRef.current.material.uniforms) {
-        const isNearCorrect = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance &&
-                             (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled || 
-                              rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
-        
-        selectedPieceRef.current.material.uniforms.correctPosition.value = 
-          isNearCorrect ? 0.5 : 0.0;
-      }
     };
     
     const onMouseUp = () => {
       if (!selectedPieceRef.current) return;
     
       const piece = selectedPieceRef.current;
-      const originalPos = piece.userData.originalPosition;
-      const distance = originalPos.distanceTo(piece.position);
-      const rotationDiff = Math.abs(piece.rotation.z % (Math.PI * 2));
+      const snapInfo = isNearSnapPosition(piece);
     
-      const isNearCorrectPosition = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance;
-      const isNearCorrectRotation = rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2;
-    
-      if (isNearCorrectPosition && isNearCorrectRotation && !piece.userData.isPlaced) {
+      if (snapInfo.isNear && snapInfo.isCorrectPosition && !piece.userData.isPlaced) {
+        // Snap the piece to its correct position
         handlePieceSnap(piece, particleSystemRef.current);
-        piece.userData.isPlaced = true;
         
-        setCompletedPieces(prev => {
-          const newCount = prev + 1;
-          const newProgress = (newCount / totalPieces) * 100;
-          setProgress(newProgress);
-          updateProgress(newProgress);
-          return newCount;
-        });
-      }
-    
-      // Reset piece state
-      if (piece.material.uniforms) {
-        piece.material.uniforms.selected.value = 0.0;
-        piece.material.uniforms.correctPosition.value = piece.userData.isPlaced ? 1.0 : 0.0;
+        // Update stats
+        setGameStats(prev => ({
+          ...prev,
+          accurateDrops: prev.accurateDrops + 1,
+          points: prev.points + POINTS.ACCURATE_PLACEMENT
+        }));
+      } else {
+        // Piece not in correct position - reset visual state
+        if (piece.material.uniforms) {
+          piece.material.uniforms.selected.value = 0.0;
+          piece.material.uniforms.correctPosition.value = 0.0;
+        }
+        
+        // Add slight bounce-back animation when dropped in wrong position
+        const currentPos = piece.position.clone();
+        const bounceBack = () => {
+          const intensity = 0.1;
+          const randomOffset = new THREE.Vector3(
+            (Math.random() - 0.5) * intensity,
+            (Math.random() - 0.5) * intensity,
+            0
+          );
+          piece.position.copy(currentPos).add(randomOffset);
+        };
+        bounceBack();
       }
     
       selectedPieceRef.current = null;
@@ -1256,338 +1288,4 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
         const outlineMaterial = new THREE.LineBasicMaterial({
           color: GRID_STYLE.primaryColor,
-          transparent: true,
-          opacity: GRID_STYLE.opacity,
-          linewidth: GRID_STYLE.lineWidth
-        });
-        const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
-        outline.position.copy(cell.position);
-        outline.position.z = -0.01;
-
-        sceneRef.current.add(outline);
-        guideOutlinesRef.current.push(outline);
-      }
-    }
-  };
-
-  const handleZoomIn = () => {
-    if (cameraRef.current) {
-      const newZ = Math.max(cameraRef.current.position.z - 1, 2);
-      cameraRef.current.position.setZ(newZ);
-    }
-  };
-
-  const handleZoomOut = () => {
-    if (cameraRef.current) {
-      const newZ = Math.min(cameraRef.current.position.z + 1, 10);
-      cameraRef.current.position.setZ(newZ);
-    }
-  };
-
-  const handleResetView = () => {
-    if (cameraRef.current && controlsRef.current) {
-      cameraRef.current.position.set(0, 0, 5);
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.update();
-    }
-  };
-
-  const handleDifficultyChange = (newDifficulty) => {
-    updateDifficulty(newDifficulty);
-    resetGame();
-  };
-
-  const scramblePieces = () => {
-    puzzlePiecesRef.current.forEach(piece => {
-      if (!piece.userData.isPlaced) {
-        piece.position.x += (Math.random() - 0.5) * 2;
-        piece.position.y += (Math.random() - 0.5) * 2;
-        piece.position.z = Math.random() * 0.1;
-      }
-    });
-  };
-
-  useEffect(() => {
-    if (!gameState?.pieces || !puzzlePiecesRef.current.length) return;
-
-    Object.entries(gameState.pieces).forEach(([pieceId, pieceData]) => {
-      const piece = puzzlePiecesRef.current.find(p => p.userData.id === pieceId);
-      if (piece && pieceData.lastUpdatedBy !== user.uid) {
-        piece.position.set(pieceData.x, pieceData.y, pieceData.z);
-        if (pieceData.rotation !== undefined) {
-          piece.rotation.z = pieceData.rotation;
-        }
-        piece.userData.isPlaced = pieceData.isPlaced;
-        if (piece.material.uniforms) {
-          piece.material.uniforms.correctPosition.value = pieceData.isPlaced ? 1.0 : 0.0;
-        }
-      }
-    });
-
-    setProgress(syncedProgress);
-  }, [gameState?.pieces, syncedProgress, user.uid]);
-
-  // Render
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-center text-white">
-          <h2 className="text-xl font-bold mb-4">Error</h2>
-          <p className="mb-4">{error}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-blue-500 rounded hover:bg-blue-600"
-          >
-            Return Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
-      <div className="bg-gray-900/80 backdrop-blur-md border-b border-gray-700 p-3 md:p-4 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 md:gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-white">
-              <Users className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-medium">{Object.keys(players).length} Players</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full text-white">
-              <Clock className="w-4 h-4 text-green-400" />
-              <span className="text-sm font-medium">{formatTime(timer)}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-full max-w-md bg-gray-800/50 rounded-full h-2.5 mb-1">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span className="text-xs text-gray-300">Progress: {Math.round(progress)}%</span>
-          </div>
-
-          <div className="flex items-center justify-center md:justify-end gap-2">
-            {isHost && (
-              <div className="flex items-center gap-2">
-                <div className="flex rounded-lg overflow-hidden bg-gray-800/50">
-                  <button
-                    onClick={startTimer}
-                    disabled={isPlaying}
-                    className="p-2 hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
-                  >
-                    <Play className="w-5 h-5 text-blue-400" />
-                  </button>
-                  <button
-                    onClick={pauseTimer}
-                    disabled={!isPlaying}
-                    className="p-2 hover:bg-yellow-500/20 disabled:opacity-50 transition-colors"
-                  >
-                    <Pause className="w-5 h-5 text-yellow-400" />
-                  </button>
-                  <button
-                    onClick={resetGame}
-                    className="p-2 hover:bg-red-500/20 transition-colors"
-                  >
-                    <RotateCcw className="w-5 h-5 text-red-400" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex rounded-lg overflow-hidden bg-gray-800/50">
-              {isHost && (
-                <button
-                  onClick={() => setShowTypeSelector(!showTypeSelector)}
-                  className="p-2 hover:bg-purple-500/20 transition-colors"
-                  title="Change Puzzle Type"
-                >
-                  <Settings className="w-5 h-5 text-purple-400" />
-                </button>
-              )}
-              <button
-                onClick={() => setShowThumbnail(!showThumbnail)}
-                className="p-2 hover:bg-purple-500/20 transition-colors"
-                title="Toggle Reference Image"
-              >
-                <Image className="w-5 h-5 text-purple-400" />
-              </button>
-              <button
-                onClick={handleZoomIn}
-                className="p-2 hover:bg-green-500/20 transition-colors"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-5 h-5 text-green-400" />
-              </button>
-              <button
-                onClick={handleZoomOut}
-                className="p-2 hover:bg-green-500/20 transition-colors"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-5 h-5 text-green-400" />
-              </button>
-              <button
-                onClick={handleResetView}
-                className="p-2 hover:bg-green-500/20 transition-colors"
-                title="Reset View"
-              >
-                <Maximize2 className="w-5 h-5 text-green-400" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Add bottom mobile navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800/95 backdrop-blur-sm border-t border-gray-700 z-40">
-        <div className="grid grid-cols-5 gap-1 p-2">
-          <button
-            onClick={() => setActiveMobilePanel('stats')}
-            className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
-          >
-            <Trophy className="w-5 h-5" />
-            <span className="text-xs mt-1">Stats</span>
-          </button>
-          <button
-            onClick={() => setActiveMobilePanel('players')}
-            className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-xs mt-1">Players</span>
-          </button>
-          <button
-            onClick={() => setActiveMobilePanel('difficulty')}
-            className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
-          >
-            <Settings className="w-5 h-5" />
-            <span className="text-xs mt-1">Difficulty</span>
-          </button>
-          {isHost && (
-            <button
-              onClick={() => setActiveMobilePanel('puzzleType')}
-              className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
-            >
-              <Image className="w-5 h-5" />
-              <span className="text-xs mt-1">Type</span>
-            </button>
-          )}
-          <button
-            onClick={() => setShowTutorial(true)}
-            className="flex flex-col items-center p-2 text-gray-400 hover:text-blue-400"
-          >
-            <Info className="w-5 h-5" />
-            <span className="text-xs mt-1">Help</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Panels */}
-      <MobilePanel
-        isOpen={activeMobilePanel === 'stats'}
-        onClose={() => setActiveMobilePanel(null)}
-        title="Game Stats"
-        icon={Trophy}
-      >
-        <StatsPanel stats={{
-          moveCount: gameStats.moveCount,
-          accurateDrops: gameStats.accurateDrops,
-          points: gameStats.points,
-          combos: gameStats.combos,
-          totalPieces
-        }} />
-      </MobilePanel>
-
-      <MobilePanel
-        isOpen={activeMobilePanel === 'difficulty'}
-        onClose={() => setActiveMobilePanel(null)}
-        title="Difficulty Settings"
-        icon={Settings}
-      >
-        <div className="space-y-2">
-          {['easy', 'medium', 'hard', 'expert'].map((diff) => (
-            <button
-              key={diff}
-              onClick={() => {
-                handleDifficultyChange(diff);
-                setActiveMobilePanel(null);
-              }}
-              disabled={!isHost}
-              className={`w-full p-4 rounded-lg flex items-center justify-between ${
-                difficulty === diff 
-                  ? 'bg-blue-500/20 text-blue-400' 
-                  : 'text-white hover:bg-gray-700/50'
-              } transition-colors disabled:opacity-50`}
-            >
-              <span className="text-lg capitalize">{diff}</span>
-              {difficulty === diff && <Check className="w-6 h-6" />}
-            </button>
-          ))}
-        </div>
-      </MobilePanel>
-
-      <MobilePanel
-        isOpen={activeMobilePanel === 'puzzleType'}
-        onClose={() => setActiveMobilePanel(null)}
-        title="Puzzle Type"
-        icon={Image}
-      >
-        <PuzzleTypeSelector
-          onSelect={handlePuzzleTypeChange}
-          currentType={puzzleType}
-          onClose={() => setActiveMobilePanel(null)}
-        />
-      </MobilePanel>
-
-      <div className="flex-1 relative">
-        {loading && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="text-white text-xl">Loading puzzle...</div>
-          </div>
-        )}
-        
-        <div 
-          ref={containerRef} 
-          className="w-full h-[calc(100vh-64px)]"
-          style={{ touchAction: 'none' }}
-        />
-
-        {showThumbnail && (
-          <div className="absolute top-20 right-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-700">
-            <img src={image} alt="Reference" className="w-48 h-auto rounded" />
-          </div>
-        )}
-
-        {showTypeSelector && (
-          <FloatingPanel
-            title="Puzzle Type"
-            icon={Image}
-            isOpen={showTypeSelector}
-            onClose={() => setShowTypeSelector(false)}
-            position="right"
-          >
-            <PuzzleTypeSelector
-              onSelect={handlePuzzleTypeChange}
-              currentType={puzzleType}
-              onClose={() => setShowTypeSelector(false)}
-            />
-          </FloatingPanel>
-        )}
-
-        <button
-          onClick={() => setShowTutorial(true)}
-          className="absolute bottom-24 right-4 p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-gray-900"
-          title="Show Help"
-        >
-          <Info className="w-6 h-6" />
-        </button>
-
-        {showTutorial && <TutorialOverlay onClose={() => setShowTutorial(false)} />}
-      </div>
-    </div>
-  );
-};
-
-export default MultiplayerManager;
+          transparent: true
