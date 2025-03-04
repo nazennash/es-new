@@ -1301,3 +1301,5 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
   return null;
 }
+
+export default MultiplayerManager;
