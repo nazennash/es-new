@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { database, ref, set, update, onValue, remove } from '../firebase';
-import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2, Rectangle, LayoutTemplate, Square, Maximize, Minimize, Gamepad2 } from 'lucide-react';
+import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2, LayoutTemplate, Square, Maximize, Minimize, Gamepad2 } from 'lucide-react';
 import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
@@ -357,7 +357,7 @@ const CollaborativePuzzle = () => {
   const puzzleTypes = [
     { 
       id: 'classic', 
-      icon: <Rectangle size={20} />, 
+      icon: <Square size={20} />, 
       label: 'Classic (4:3)', 
       emoji: '🟥',
       description: 'Standard rectangle format'

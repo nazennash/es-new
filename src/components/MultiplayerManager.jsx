@@ -8,7 +8,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
-         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings, Rectangle, LayoutTemplate, Square, Maximize } from 'lucide-react';
+         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings, LayoutTemplate, Square, Maximize } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // 2. Constants - 1
