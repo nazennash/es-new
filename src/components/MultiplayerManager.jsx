@@ -10,6 +10,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
          Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings, LayoutTemplate, Square, Maximize } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { PUZZLE_TYPES } from '../constants/puzzleTypes';
 
 // 2. Constants - 1
 const POINTS = {
@@ -24,75 +25,6 @@ const DIFFICULTY_SETTINGS = {
   medium: { grid: { x: 4, y: 3 }, snapDistance: 0.3, rotationEnabled: true },
   hard: { grid: { x: 5, y: 4 }, snapDistance: 0.2, rotationEnabled: true },
   expert: { grid: { x: 6, y: 5 }, snapDistance: 0.15, rotationEnabled: true }
-};
-
-const PUZZLE_TYPES = {
-  classic: {
-    name: 'Classic',
-    cameraPosition: new THREE.Vector3(0, 0, 5),
-    description: 'Standard rectangle format (4:3)',
-    settings: {
-      aspectRatio: 4/3,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 3.5
-    }
-  },
-  vertical: {
-    name: 'Vertical',
-    cameraPosition: new THREE.Vector3(0, 0, 6),
-    description: 'Tall rectangular format (2:3)',
-    settings: {
-      aspectRatio: 2/3,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 4
-    }
-  },
-  panoramic: {
-    name: 'Panoramic',
-    cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Wide rectangular format (16:9)',
-    settings: {
-      aspectRatio: 16/9,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 5
-    }
-  },
-  square: {
-    name: 'Square',
-    cameraPosition: new THREE.Vector3(0, 0, 5),
-    description: 'Perfect square format (1:1)',
-    settings: {
-      aspectRatio: 1,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 3.5
-    }
-  },
-  portrait: {
-    name: 'Portrait',
-    cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Very tall format (3:5)',
-    settings: {
-      aspectRatio: 3/5,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 4.5
-    }
-  },
-  landscape: {
-    name: 'Landscape',
-    cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Very wide format (21:9)',
-    settings: {
-      aspectRatio: 21/9,
-      snapThreshold: 0.25,
-      rotationEnabled: false,
-      baseSize: 5.5
-    }
-  }
 };
 
 const CONTAINER_LAYOUT = {

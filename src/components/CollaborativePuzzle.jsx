@@ -5,39 +5,7 @@ import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2, LayoutTemplate, Squ
 import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
-
-const PUZZLE_TYPES = {
-  classic: {
-    name: 'Classic',
-    aspectRatio: 4/3,
-    description: 'Standard rectangle format'
-  },
-  vertical: {
-    name: 'Vertical',
-    aspectRatio: 2/3,
-    description: 'Tall rectangular format'
-  },
-  panoramic: {
-    name: 'Panoramic',
-    aspectRatio: 16/9,
-    description: 'Wide rectangular format'
-  },
-  square: {
-    name: 'Square',
-    aspectRatio: 1,
-    description: 'Perfect square format'
-  },
-  portrait: {
-    name: 'Portrait',
-    aspectRatio: 3/5,
-    description: 'Very tall format'
-  },
-  landscape: {
-    name: 'Landscape',
-    aspectRatio: 21/9,
-    description: 'Very wide format'
-  }
-};
+import { PUZZLE_TYPES } from '../constants/puzzleTypes';
 
 const CollaborativePuzzle = () => {
   const { gameId } = useParams();
