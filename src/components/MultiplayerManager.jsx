@@ -11,7 +11,7 @@ import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Imag
          Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// 2. Constants
+// 2. Constants - 1
 const POINTS = {
   ACCURATE_PLACEMENT: 100,
   QUICK_PLACEMENT: 50,
