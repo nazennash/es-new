@@ -181,15 +181,23 @@ const CollaborativePuzzle = () => {
 
   // Add puzzle type synchronization
   const updatePuzzleType = async (newType) => {
-    if (!isHost) return;
-
+    if (!isHost) {
+      toast.error('Only the host can change puzzle type');
+      return;
+    }
+  
+    if (!PUZZLE_TYPES[newType]) {
+      toast.error('Invalid puzzle type');
+      return;
+    }
+  
     try {
       await update(ref(database, `games/${actualGameId}`), {
         puzzleType: newType,
         lastUpdated: Date.now()
       });
       setPuzzleType(newType);
-      toast.success(`Puzzle type changed to ${newType}`);
+      toast.success(`Changed to ${PUZZLE_TYPES[newType].name} format`);
     } catch (error) {
       console.error('Failed to update puzzle type:', error);
       toast.error('Failed to change puzzle type');
@@ -347,12 +355,48 @@ const CollaborativePuzzle = () => {
   }
 
   const puzzleTypes = [
-    { id: 'classic', icon: <Rectangle size={20} />, label: 'Classic', emoji: '🟥' },
-    { id: 'vertical', icon: <Maximize size={20} />, label: 'Vertical', emoji: '📱' },
-    { id: 'panoramic', icon: <LayoutTemplate size={20} />, label: 'Panoramic', emoji: '🖼️' },
-    { id: 'square', icon: <Square size={20} />, label: 'Square', emoji: '⬛' },
-    { id: 'portrait', icon: <Maximize size={20} />, label: 'Portrait', emoji: '📲' },
-    { id: 'landscape', icon: <LayoutTemplate size={20} />, label: 'Landscape', emoji: '🌅' }
+    { 
+      id: 'classic', 
+      icon: <Rectangle size={20} />, 
+      label: 'Classic (4:3)', 
+      emoji: '🟥',
+      description: 'Standard rectangle format'
+    },
+    { 
+      id: 'vertical', 
+      icon: <Maximize size={20} />, 
+      label: 'Vertical (2:3)', 
+      emoji: '📱',
+      description: 'Tall rectangular format'
+    },
+    { 
+      id: 'panoramic', 
+      icon: <LayoutTemplate size={20} />, 
+      label: 'Panoramic (16:9)', 
+      emoji: '🖼️',
+      description: 'Wide rectangular format'
+    },
+    { 
+      id: 'square', 
+      icon: <Square size={20} />, 
+      label: 'Square (1:1)', 
+      emoji: '⬛',
+      description: 'Perfect square format'
+    },
+    { 
+      id: 'portrait', 
+      icon: <Maximize size={20} />, 
+      label: 'Portrait (3:5)', 
+      emoji: '📲',
+      description: 'Very tall format'
+    },
+    { 
+      id: 'landscape', 
+      icon: <LayoutTemplate size={20} />, 
+      label: 'Landscape (21:9)', 
+      emoji: '🌅',
+      description: 'Very wide format'
+    }
   ];
 
   // Lobby UI

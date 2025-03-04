@@ -8,7 +8,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
-         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
+         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings, Rectangle, LayoutTemplate, Square, Maximize } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // 2. Constants - 1
@@ -30,61 +30,67 @@ const PUZZLE_TYPES = {
   classic: {
     name: 'Classic',
     cameraPosition: new THREE.Vector3(0, 0, 5),
-    description: 'Standard rectangle format',
+    description: 'Standard rectangle format (4:3)',
     settings: {
       aspectRatio: 4/3,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 3.5
     }
   },
   vertical: {
     name: 'Vertical',
     cameraPosition: new THREE.Vector3(0, 0, 6),
-    description: 'Tall rectangular format',
+    description: 'Tall rectangular format (2:3)',
     settings: {
       aspectRatio: 2/3,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 4
     }
   },
   panoramic: {
     name: 'Panoramic',
     cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Wide rectangular format',
+    description: 'Wide rectangular format (16:9)',
     settings: {
       aspectRatio: 16/9,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 5
     }
   },
   square: {
     name: 'Square',
     cameraPosition: new THREE.Vector3(0, 0, 5),
-    description: 'Perfect square format',
+    description: 'Perfect square format (1:1)',
     settings: {
-      aspectRatio: 1/1,
+      aspectRatio: 1,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 3.5
     }
   },
   portrait: {
     name: 'Portrait',
     cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Very tall format',
+    description: 'Very tall format (3:5)',
     settings: {
       aspectRatio: 3/5,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 4.5
     }
   },
   landscape: {
     name: 'Landscape',
     cameraPosition: new THREE.Vector3(0, 0, 7),
-    description: 'Very wide format',
+    description: 'Very wide format (21:9)',
     settings: {
       aspectRatio: 21/9,
       snapThreshold: 0.25,
-      rotationEnabled: false
+      rotationEnabled: false,
+      baseSize: 5.5
     }
   }
 };
@@ -684,12 +690,28 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   
     try {
       const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
-      const aspectRatio = texture.image.width / texture.image.height;
-      const baseSize = 3.5;
+      const puzzleSettings = PUZZLE_TYPES[puzzleType].settings;
+      const imageAspectRatio = texture.image.width / texture.image.height;
+      const targetAspectRatio = puzzleSettings.aspectRatio;
+      
+      // Calculate piece sizes based on aspect ratio
+      const baseSize = puzzleSettings.baseSize;
+      let pieceWidth, pieceHeight;
+      
+      if (imageAspectRatio > targetAspectRatio) {
+        // Image is wider than target
+        pieceWidth = baseSize;
+        pieceHeight = baseSize / targetAspectRatio;
+      } else {
+        // Image is taller than target
+        pieceWidth = baseSize * targetAspectRatio;
+        pieceHeight = baseSize;
+      }
+  
       const settings = DIFFICULTY_SETTINGS[difficulty];
       const pieceSize = {
-        x: (baseSize * aspectRatio) / settings.grid.x,
-        y: baseSize / settings.grid.y
+        x: pieceWidth / settings.grid.x,
+        y: pieceHeight / settings.grid.y
       };
   
       const pieces = [];
