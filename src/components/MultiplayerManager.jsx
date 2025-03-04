@@ -1289,3 +1289,15 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         const outlineMaterial = new THREE.LineBasicMaterial({
           color: GRID_STYLE.primaryColor,
           transparent: true
+        });
+        const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
+        outline.position.copy(cell.position);
+        outline.position.z = -0.01;
+        sceneRef.current.add(outline);
+        guideOutlinesRef.current.push(outline);
+      }
+    }
+  };
+
+  return null;
+}
