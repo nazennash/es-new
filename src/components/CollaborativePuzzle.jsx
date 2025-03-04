@@ -6,6 +6,7 @@ import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
 import { PUZZLE_TYPES } from '../constants/puzzleTypes';
+import { saveRedirectPath } from '../utils/authRedirect';
 
 const CollaborativePuzzle = () => {
   const { gameId } = useParams();
@@ -35,6 +36,17 @@ const CollaborativePuzzle = () => {
   const isJoining = gameId.includes('join_');
   const actualGameId = isJoining ? gameId.replace('join_', '') : gameId;
   const isHost = !isJoining;
+
+  // Add authentication check before game initialization
+  useEffect(() => {
+    const auth = localStorage.getItem('authUser');
+    if (!auth) {
+      const currentPath = window.location.hash.substring(1);
+      saveRedirectPath(currentPath);
+      navigate('/login');
+      return;
+    }
+  }, [navigate]);
 
   // Initialize game session
   useEffect(() => {

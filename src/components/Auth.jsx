@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   signInWithPopup,
 } from 'firebase/auth';
+import { getAndClearRedirectPath } from '../utils/authRedirect';
 
 const PuzzlePiece = ({ className }) => (
   <div className={`absolute ${className}`}>
@@ -56,20 +57,28 @@ const Auth = ({ onAuthSuccess }) => {
     }
   }, [onAuthSuccess]);
 
+  const handleSuccessfulLogin = (user) => {
+    localStorage.setItem('authUser', JSON.stringify(user));
+    const redirectPath = getAndClearRedirectPath();
+    
+    if (redirectPath) {
+      window.location.href = `/#${redirectPath}`;
+    } else {
+      onAuthSuccess(user);
+    }
+  };
+
   const handleEmailPasswordAuth = async () => {
     setIsLoading(true);
     try {
       let userCredential;
       if (isLogin) {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
-        setMessage('Login successful!');
       } else {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        setMessage('Sign up successful! Please log in.');
       }
-      const user = userCredential.user;
-      localStorage.setItem('authUser', JSON.stringify(user));
-      onAuthSuccess(user);
+      handleSuccessfulLogin(userCredential.user);
+      setMessage(isLogin ? 'Login successful!' : 'Sign up successful!');
     } catch (error) {
       setMessage(getReadableErrorMessage(error));
     } finally {
@@ -81,9 +90,7 @@ const Auth = ({ onAuthSuccess }) => {
     setIsLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      localStorage.setItem('authUser', JSON.stringify(user));
-      onAuthSuccess(user);
+      handleSuccessfulLogin(result.user);
       setMessage('Google login successful!');
     } catch (error) {
       setMessage(getReadableErrorMessage(error));
