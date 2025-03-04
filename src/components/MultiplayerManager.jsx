@@ -46,28 +46,28 @@ const PUZZLE_TYPES = {
       faces: ['front', 'back', 'top', 'bottom', 'left', 'right']
     }
   },
-  sphere: {
-    name: 'Spherical',
-    cameraPosition: new THREE.Vector3(0, 0, 4),
-    description: 'Wrap around a sphere',
-    settings: {
-      snapThreshold: 0.2,
-      rotationEnabled: true,
-      radius: 2,
-      segments: 32
-    }
-  },
-  pyramid: {
-    name: 'Pyramid',
-    cameraPosition: new THREE.Vector3(2, 2, 2),
-    description: 'Build from base to tip',
-    settings: {
-      snapThreshold: 0.25,
-      rotationEnabled: true,
-      baseSize: 2,
-      height: 2
-    }
-  },
+  // sphere: {
+  //   name: 'Spherical',
+  //   cameraPosition: new THREE.Vector3(0, 0, 4),
+  //   description: 'Wrap around a sphere',
+  //   settings: {
+  //     snapThreshold: 0.2,
+  //     rotationEnabled: true,
+  //     radius: 2,
+  //     segments: 32
+  //   }
+  // },
+  // pyramid: {
+  //   name: 'Pyramid',
+  //   cameraPosition: new THREE.Vector3(2, 2, 2),
+  //   description: 'Build from base to tip',
+  //   settings: {
+  //     snapThreshold: 0.25,
+  //     rotationEnabled: true,
+  //     baseSize: 2,
+  //     height: 2
+  //   }
+  // },
   cylinder: {
     name: 'Cylinder',
     cameraPosition: new THREE.Vector3(3, 0, 3),
@@ -79,17 +79,17 @@ const PUZZLE_TYPES = {
       height: 2
     }
   },
-  tower: {
-    name: 'Tower',
-    cameraPosition: new THREE.Vector3(0, 2, 4),
-    description: 'Stack pieces vertically',
-    settings: {
-      snapThreshold: 0.3,
-      rotationEnabled: true,
-      baseSize: 1.5,
-      levels: 8
-    }
-  }
+  // tower: {
+  //   name: 'Tower',
+  //   cameraPosition: new THREE.Vector3(0, 2, 4),
+  //   description: 'Stack pieces vertically',
+  //   settings: {
+  //     snapThreshold: 0.3,
+  //     rotationEnabled: true,
+  //     baseSize: 1.5,
+  //     levels: 8
+  //   }
+  // }
 };
 
 const CONTAINER_LAYOUT = {
@@ -653,7 +653,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     });
   };
 
-  const createPuzzlePieces = async (imageUrl) => {
+  const createPuzzlePieces = async (imageUrl, puzzleType = 'classic') => {
     if (!sceneRef.current) return;
   
     // Clear existing pieces
@@ -664,24 +664,26 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     });
     puzzlePiecesRef.current = [];
   
-    // Create containers first
-    Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
-      const containerGeometry = new THREE.PlaneGeometry(
-        layout.dimensions.width,
-        layout.dimensions.height
-      );
-      const containerMaterial = new THREE.MeshBasicMaterial({
-        color: layout.color,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
+    // Create containers first (only for 2D puzzles)
+    if (puzzleType === 'classic') {
+      Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
+        const containerGeometry = new THREE.PlaneGeometry(
+          layout.dimensions.width,
+          layout.dimensions.height
+        );
+        const containerMaterial = new THREE.MeshBasicMaterial({
+          color: layout.color,
+          transparent: true,
+          opacity: 0.3,
+          side: THREE.DoubleSide
+        });
+        const container = new THREE.Mesh(containerGeometry, containerMaterial);
+        container.position.set(layout.position.x, layout.position.y, -0.1);
+        container.userData.isContainer = true;
+        container.userData.side = side;
+        sceneRef.current.add(container);
       });
-      const container = new THREE.Mesh(containerGeometry, containerMaterial);
-      container.position.set(layout.position.x, layout.position.y, -0.1);
-      container.userData.isContainer = true;
-      container.userData.side = side;
-      sceneRef.current.add(container);
-    });
+    }
   
     try {
       const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
@@ -696,12 +698,31 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       const pieces = [];
       for (let y = 0; y < settings.grid.y; y++) {
         for (let x = 0; x < settings.grid.x; x++) {
-          const geometry = new THREE.PlaneGeometry(
-            pieceSize.x * 0.98,
-            pieceSize.y * 0.98,
-            32,
-            32
-          );
+          let geometry;
+          switch (puzzleType) {
+            case 'cube':
+              // Create a cube geometry for 3D cube puzzles
+              geometry = new THREE.BoxGeometry(pieceSize.x, pieceSize.y, pieceSize.x);
+              break;
+            case 'cylinder':
+              // Create a cylinder geometry for 3D cylinder puzzles
+              geometry = new THREE.CylinderGeometry(
+                pieceSize.x / 2, // Radius at the top
+                pieceSize.x / 2, // Radius at the bottom
+                pieceSize.y,      // Height
+                32                // Number of radial segments
+              );
+              break;
+            default:
+              // Default to 2D plane geometry for classic puzzles
+              geometry = new THREE.PlaneGeometry(
+                pieceSize.x * 0.98,
+                pieceSize.y * 0.98,
+                32,
+                32
+              );
+              break;
+          }
   
           const material = new THREE.ShaderMaterial({
             uniforms: {
@@ -720,7 +741,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
           });
   
           const piece = new THREE.Mesh(geometry, material);
-          
+  
           // Store original position for snapping
           piece.userData.originalPosition = new THREE.Vector3(
             (x - (settings.grid.x - 1) / 2) * pieceSize.x,
@@ -735,15 +756,26 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         }
       }
   
-      // Distribute pieces between containers
-      const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
-      const halfLength = Math.ceil(shuffledPieces.length / 2);
-      const leftPieces = shuffledPieces.slice(0, halfLength);
-      const rightPieces = shuffledPieces.slice(halfLength);
+      // Distribute pieces between containers (only for 2D puzzles)
+      if (puzzleType === 'classic') {
+        const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
+        const halfLength = Math.ceil(shuffledPieces.length / 2);
+        const leftPieces = shuffledPieces.slice(0, halfLength);
+        const rightPieces = shuffledPieces.slice(halfLength);
   
-      // Arrange pieces in containers
-      arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
-      arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+        // Arrange pieces in containers
+        arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
+        arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
+      } else {
+        // For 3D puzzles, scatter pieces randomly in 3D space
+        pieces.forEach(piece => {
+          piece.position.set(
+            (Math.random() - 0.5) * 10, // Random X position
+            (Math.random() - 0.5) * 10, // Random Y position
+            (Math.random() - 0.5) * 10  // Random Z position
+          );
+        });
+      }
   
       // Add all pieces to scene and synchronize with other players
       pieces.forEach(piece => {
@@ -759,7 +791,9 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       });
   
       setTotalPieces(settings.grid.x * settings.grid.y);
-      createPlacementGuides(settings.grid, pieceSize);
+      if (puzzleType === 'classic') {
+        createPlacementGuides(settings.grid, pieceSize);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);

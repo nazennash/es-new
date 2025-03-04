@@ -10,7 +10,8 @@ import {
   orderBy,
   onSnapshot,
   doc,
-  limit
+  limit,
+  getDoc
 } from 'firebase/firestore';
 import { nanoid } from 'nanoid';
 import QuickAccess from './QuickAccess';
@@ -216,6 +217,7 @@ const Home = ({ user }) => {
   const subscription = useUserSubscription(user?.uid);
   const isPremium = subscription.planId === "pro" && subscription.status === "active";
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [incompletePuzzles, setIncompletePuzzles] = useState([]);
 
   // Onboarding state
   const [runOnboarding, setRunOnboarding] = useState(false);
@@ -261,6 +263,48 @@ const Home = ({ user }) => {
       setRunOnboarding(true);
     }
   }, []);
+
+  // useEffect to fetch incomplete puzzles
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getFirestore();
+    const incompletePuzzlesRef = collection(db, 'games');
+    const incompletePuzzlesQuery = query(
+      incompletePuzzlesRef,
+      where('userId', '==', user.uid),
+      where('state', '==', 'in_progress')
+    );
+
+    const unsubscribe = onSnapshot(incompletePuzzlesQuery, (snapshot) => {
+      const puzzles = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setIncompletePuzzles(puzzles);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+
+  // Add a function to handle resuming a puzzle
+  const handleResumePuzzle = async (puzzleId) => {
+    const db = getFirestore();
+    const gameRef = doc(db, 'games', puzzleId);
+  
+    try {
+      const gameSnapshot = await getDoc(gameRef);
+      if (gameSnapshot.exists()) {
+        navigate(`/puzzle/cultural/${puzzleId}`);
+      } else {
+        toast.error("Puzzle not found. It may have been deleted.");
+      }
+    } catch (error) {
+      console.error("Error fetching puzzle data:", error);
+      toast.error("Failed to resume puzzle.");
+    }
+  };
 
   useEffect(() => {
     if (isPremium) {
@@ -497,6 +541,45 @@ const Home = ({ user }) => {
           <QuickAccess userId={user.uid} />
         </div>
 
+        <div className="bg-white rounded-lg shadow-lg transform transition-transform hover:scale-102 hover:shadow-2xl mt-5">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Incomplete Puzzles
+            </h2>
+            {incompletePuzzles.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {incompletePuzzles.map(puzzle => (
+                  <div
+                    key={puzzle.id}
+                    className="border rounded-lg p-4 hover:shadow-md transition duration-200 transform hover:scale-105"
+                  >
+                    <img
+                      src={puzzle.imageUrl}
+                      alt="Puzzle thumbnail"
+                      className="w-full h-32 object-contain rounded mb-2"
+                      loading="lazy"
+                    />
+                    <h3 className="font-semibold">{puzzle.difficulty} Difficulty</h3>
+                    <p className="text-sm text-gray-600">
+                      Progress: {Math.round((puzzle.completedPieces / puzzle.totalPieces) * 100)}%
+                    </p>
+                    <button
+                      onClick={() => handleResumePuzzle(puzzle.id)}
+                      className="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                    >
+                    
+                      Resume
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600">No incomplete puzzles found.</p>
+            )}
+          </div>
+        </div>
+
+
         {/* Recent Puzzles Section */}
         <div className="bg-white rounded-lg shadow-lg transform transition-transform hover:scale-102 hover:shadow-2xl mt-5">
           <div className="p-6">
@@ -506,7 +589,7 @@ const Home = ({ user }) => {
                 {recentPuzzles.map(puzzle => (
                   <div
                     key={puzzle.id}
-                    className="border rounded-lg p-4 hover:shadow-md transition duration-200 transform hover:scale-105"
+                    className="border rounded-lg p-4 hover:shadow-md"
                   >
                     <img
                       src={puzzle.thumbnail}
