@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { database, ref, set, update, onValue, remove } from '../firebase';
-import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2, Gamepad2, Box, Globe2, Triangle, Cylinder, Castle } from 'lucide-react';
+import { Camera, Copy, Users, ArrowLeft, Play, Mail, Share2, Rectangle, LayoutTemplate, Square, Maximize, Minimize } from 'lucide-react';
 import MultiplayerManager from './MultiplayerManager';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './ErrorBoundary';
@@ -347,12 +347,12 @@ const CollaborativePuzzle = () => {
   }
 
   const puzzleTypes = [
-    { id: 'classic', icon: <Gamepad2 size={20} />, label: 'Classic', emoji: '🎮' },
-    // { id: 'cube', icon: <Box size={20} />, label: 'Cube', emoji: '🎲' },
-    // { id: 'sphere', icon: <Globe2 size={20} />, label: 'Sphere', emoji: '🌐' },
-    // { id: 'pyramid', icon: <Triangle size={20} />, label: 'Pyramid', emoji: '🔺' },
-    // { id: 'cylinder', icon: <Cylinder size={20} />, label: 'Cylinder', emoji: '🗞️' },
-    // { id: 'tower', icon: <Castle size={20} />, label: 'Tower', emoji: '🏰' }
+    { id: 'classic', icon: <Rectangle size={20} />, label: 'Classic', emoji: '🟥' },
+    { id: 'vertical', icon: <Maximize size={20} />, label: 'Vertical', emoji: '📱' },
+    { id: 'panoramic', icon: <LayoutTemplate size={20} />, label: 'Panoramic', emoji: '🖼️' },
+    { id: 'square', icon: <Square size={20} />, label: 'Square', emoji: '⬛' },
+    { id: 'portrait', icon: <Maximize size={20} />, label: 'Portrait', emoji: '📲' },
+    { id: 'landscape', icon: <LayoutTemplate size={20} />, label: 'Landscape', emoji: '🌅' }
   ];
 
   // Lobby UI

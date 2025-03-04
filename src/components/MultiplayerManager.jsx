@@ -28,68 +28,65 @@ const DIFFICULTY_SETTINGS = {
 
 const PUZZLE_TYPES = {
   classic: {
-    name: 'Classic 2D',
+    name: 'Classic',
     cameraPosition: new THREE.Vector3(0, 0, 5),
-    description: 'Traditional flat puzzle',
+    description: 'Standard rectangle format',
     settings: {
+      aspectRatio: 4/3,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
   },
-  cube: {
-    name: '3D Cube',
-    cameraPosition: new THREE.Vector3(3, 3, 3),
-    description: 'Solve all six faces',
+  vertical: {
+    name: 'Vertical',
+    cameraPosition: new THREE.Vector3(0, 0, 6),
+    description: 'Tall rectangular format',
     settings: {
-      snapThreshold: 0.3,
-      rotationEnabled: true,
-      faces: ['front', 'back', 'top', 'bottom', 'left', 'right']
+      aspectRatio: 2/3,
+      snapThreshold: 0.25,
+      rotationEnabled: false
     }
   },
-  // sphere: {
-  //   name: 'Spherical',
-  //   cameraPosition: new THREE.Vector3(0, 0, 4),
-  //   description: 'Wrap around a sphere',
-  //   settings: {
-  //     snapThreshold: 0.2,
-  //     rotationEnabled: true,
-  //     radius: 2,
-  //     segments: 32
-  //   }
-  // },
-  // pyramid: {
-  //   name: 'Pyramid',
-  //   cameraPosition: new THREE.Vector3(2, 2, 2),
-  //   description: 'Build from base to tip',
-  //   settings: {
-  //     snapThreshold: 0.25,
-  //     rotationEnabled: true,
-  //     baseSize: 2,
-  //     height: 2
-  //   }
-  // },
-  cylinder: {
-    name: 'Cylinder',
-    cameraPosition: new THREE.Vector3(3, 0, 3),
-    description: 'Wrap around a cylinder',
+  panoramic: {
+    name: 'Panoramic',
+    cameraPosition: new THREE.Vector3(0, 0, 7),
+    description: 'Wide rectangular format',
     settings: {
-      snapThreshold: 0.2,
-      rotationEnabled: true,
-      radius: 1,
-      height: 2
+      aspectRatio: 16/9,
+      snapThreshold: 0.25,
+      rotationEnabled: false
     }
   },
-  // tower: {
-  //   name: 'Tower',
-  //   cameraPosition: new THREE.Vector3(0, 2, 4),
-  //   description: 'Stack pieces vertically',
-  //   settings: {
-  //     snapThreshold: 0.3,
-  //     rotationEnabled: true,
-  //     baseSize: 1.5,
-  //     levels: 8
-  //   }
-  // }
+  square: {
+    name: 'Square',
+    cameraPosition: new THREE.Vector3(0, 0, 5),
+    description: 'Perfect square format',
+    settings: {
+      aspectRatio: 1/1,
+      snapThreshold: 0.25,
+      rotationEnabled: false
+    }
+  },
+  portrait: {
+    name: 'Portrait',
+    cameraPosition: new THREE.Vector3(0, 0, 7),
+    description: 'Very tall format',
+    settings: {
+      aspectRatio: 3/5,
+      snapThreshold: 0.25,
+      rotationEnabled: false
+    }
+  },
+  landscape: {
+    name: 'Landscape',
+    cameraPosition: new THREE.Vector3(0, 0, 7),
+    description: 'Very wide format',
+    settings: {
+      aspectRatio: 21/9,
+      snapThreshold: 0.25,
+      rotationEnabled: false
+    }
+  }
 };
 
 const CONTAINER_LAYOUT = {
