@@ -41,8 +41,11 @@ const CollaborativePuzzle = () => {
   useEffect(() => {
     const auth = localStorage.getItem('authUser');
     if (!auth) {
-      const currentPath = window.location.hash.substring(1);
-      saveRedirectPath(currentPath);
+      // Get full URL including hash
+      const fullPath = window.location.pathname + window.location.hash;
+      // Remove any leading slashes and 'puzzle/multiplayer/' prefix
+      const cleanPath = fullPath.replace(/^\/|^#\/|puzzle\/multiplayer\//g, '');
+      saveRedirectPath(`/puzzle/multiplayer/${cleanPath}`);
       navigate('/login');
       return;
     }

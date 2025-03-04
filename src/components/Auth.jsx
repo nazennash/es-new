@@ -6,7 +6,7 @@ import {
   sendPasswordResetEmail,
   signInWithPopup,
 } from 'firebase/auth';
-import { getAndClearRedirectPath } from '../utils/authRedirect';
+import { getAndClearRedirectPath, redirectToSavedPath } from '../utils/authRedirect';
 
 const PuzzlePiece = ({ className }) => (
   <div className={`absolute ${className}`}>
@@ -59,11 +59,10 @@ const Auth = ({ onAuthSuccess }) => {
 
   const handleSuccessfulLogin = (user) => {
     localStorage.setItem('authUser', JSON.stringify(user));
-    const redirectPath = getAndClearRedirectPath();
     
-    if (redirectPath) {
-      window.location.href = `/#${redirectPath}`;
-    } else {
+    // Try to redirect to saved path first
+    if (!redirectToSavedPath()) {
+      // If no saved path, use default success handler
       onAuthSuccess(user);
     }
   };
