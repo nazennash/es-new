@@ -384,11 +384,12 @@ const Home = ({ user }) => {
   }, [navigate]);
 
   const handleStartPuzzle = (type) => {
-    if (!isPremium && type === 'multiplayer') {
-      toast.error("Upgrade to Premium to access multiplayer puzzles!");
-      setIsModalOpen(true);
-      return;
-    }
+    // if (!isPremium && type === 'multiplayer') {
+    // if (!isPremium && type === 'multiplayer') {
+    //   toast.error("Upgrade to Premium to access multiplayer puzzles!");
+    //   setIsModalOpen(true);
+    //   return;
+    // }
 
     if (type === 'multiplayer') {
       const gameId = nanoid(6);
