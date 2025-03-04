@@ -173,20 +173,63 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
   }, [gameId, isHost]);
 
   // Sync piece state
-  const syncPieceState = useCallback(async (piecesData) => {
-    if (!gameId || !isHost) return;
+  const syncPieceState = useCallback(async (pieceId, pieceData) => {
+    if (!gameId) return;
 
     try {
-      await set(ref(database, `games/${gameId}/pieces`), {
-        ...piecesData,
-        lastUpdated: Date.now()
-      });
+      // Add timestamp and last update info
+      const updateData = {
+        ...pieceData,
+        lastUpdated: Date.now(),
+        lastUpdatedBy: userId
+      };
+
+      // Check for conflicts
+      const pieceRef = ref(database, `games/${gameId}/pieces/${pieceId}`);
+      const snapshot = await get(pieceRef);
+      const existingData = snapshot.val();
+
+      if (existingData?.isPlaced && 
+          existingData.lastUpdatedBy !== userId && 
+          existingData.timestamp > updateData.timestamp) {
+        // Another player placed this piece more recently
+        return false;
+      }
+
+      // Update piece state
+      await update(pieceRef, updateData);
+      return true;
     } catch (error) {
       console.error('Sync piece state error:', error);
-      setError('Failed to sync pieces');
-      toast.error('Failed to sync pieces');
+      toast.error('Failed to sync piece state');
+      return false;
     }
-  }, [gameId, isHost]);
+  }, [gameId, userId]);
+
+  // Add queue system for piece updates
+  const updateQueue = useRef([]);
+  const isProcessingQueue = useRef(false);
+
+  const processUpdateQueue = useCallback(async () => {
+    if (isProcessingQueue.current || updateQueue.current.length === 0) return;
+
+    isProcessingQueue.current = true;
+
+    try {
+      const update = updateQueue.current.shift();
+      await syncPieceState(update.pieceId, update.data);
+    } finally {
+      isProcessingQueue.current = false;
+      if (updateQueue.current.length > 0) {
+        processUpdateQueue();
+      }
+    }
+  }, [syncPieceState]);
+
+  const queuePieceUpdate = useCallback((pieceId, data) => {
+    updateQueue.current.push({ pieceId, data });
+    processUpdateQueue();
+  }, [processUpdateQueue]);
 
   // Handle player ready state
   const setPlayerReady = useCallback(async (ready = true) => {
@@ -315,7 +358,7 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
     updateGameState,
     updatePiecePosition,
     syncPuzzleState,
-    syncPieceState,
+    queuePieceUpdate,
     setPlayerReady,
     startGame,
     pauseGame,

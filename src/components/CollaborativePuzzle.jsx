@@ -174,29 +174,27 @@ const CollaborativePuzzle = () => {
     }
 
     try {
-      // Create a promise to handle image loading
-      const imageDataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = (e) => reject(new Error('Failed to read image file'));
-        reader.readAsDataURL(file);
-      });
-
+      // Create a blob URL instead of base64
+      const imageUrl = URL.createObjectURL(file);
+      
       // Pre-load the image to ensure it's valid
       await new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = resolve;
+        img.onload = () => {
+          console.log('Image loaded successfully:', img.width, 'x', img.height);
+          resolve();
+        };
         img.onerror = () => reject(new Error('Invalid image file'));
-        img.src = imageDataUrl;
+        img.src = imageUrl;
       });
 
-      // Update game state with the image
+      // Update game state with the blob URL
       await update(ref(database, `games/${actualGameId}`), {
-        image: imageDataUrl,
+        image: imageUrl,
         uploadedAt: Date.now()
       });
 
-      setImage(imageDataUrl);
+      setImage(imageUrl);
       toast.success('Image uploaded successfully');
       
     } catch (error) {

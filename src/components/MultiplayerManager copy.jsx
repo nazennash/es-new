@@ -299,17 +299,6 @@ const setupCamera = (puzzleType) => {
   controlsRef.current.update();
 };
 
-// Add this helper function to calculate piece size
-const calculatePieceSize = (gridSize, aspectRatio = 1) => {
-  const baseSize = 4; // Base size for the puzzle grid
-  const maxWidth = baseSize * aspectRatio;
-  
-  return {
-    x: (maxWidth / gridSize.x) * 0.98, // 0.98 to add small gap between pieces
-    y: (baseSize / gridSize.y) * 0.98
-  };
-};
-
 // 5. Component Functions
 const DifficultyMenu = ({ current, onChange, isHost }) => (
   <div className="absolute top-20 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700 w-48">
@@ -530,8 +519,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [activePanel, setActivePanel] = useState(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [pieceStates, setPieceStates] = useState({});
-  const [placedPieces, setPlacedPieces] = useState(new Set());
 
   // Refs
   const containerRef = useRef(null);
@@ -598,7 +585,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
   const resetGame = () => {
     startGame();
-    clearInterval(timerRef.current);
     setElapsedTime(0);
     updateTimer(0);
     setCompletedPieces(0);
@@ -624,6 +610,17 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const celebrateProgress = (progress) => {
     if (progress % 25 === 0) {
       const confettiParticles = [];
+      for (let i = 0; i < 50; i++) {
+        confettiParticles.push({
+          position: new THREE.Vector3(0, 0, 0),
+          velocity: new THREE.Vector3(
+            (Math.random() - 0.5) * 0.3,
+            Math.random() * 0.3,
+            (Math.random() - 0.5) * 0.3
+          ),
+          color: new THREE.Color().setHSL(Math.random(), 0.8, 0.5)
+        });
+      }
       
       particleSystemRef.current.emitMultiple(confettiParticles);
       new Audio('/sounds/celebration.mp3').play();
@@ -654,8 +651,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const createPuzzlePieces = async (imageUrl, puzzleType = 'classic') => {
     if (!sceneRef.current) return;
   
-    console.log('Creating puzzle pieces with image:', imageUrl); // Add debug logging
-  
     // Clear existing pieces
     puzzlePiecesRef.current.forEach(piece => {
       if (piece.geometry) piece.geometry.dispose();
@@ -665,33 +660,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     puzzlePiecesRef.current = [];
   
     try {
-      // Add error handling for image loading
-      const texture = await new Promise((resolve, reject) => {
-        const loader = new THREE.TextureLoader();
-        loader.crossOrigin = 'anonymous'; // Add cross-origin handling
-        
-        loader.load(
-          imageUrl,
-          (texture) => {
-            console.log('Texture loaded successfully');
-            resolve(texture);
-          },
-          undefined,
-          (error) => {
-            console.error('Error loading texture:', error);
-            reject(error);
-          }
-        );
-      });
-  
-      // Check if texture loaded correctly
-      if (!texture.image || !texture.image.width || !texture.image.height) {
-        throw new Error('Invalid texture dimensions');
-      }
-  
+      const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
       const aspectRatio = texture.image.width / texture.image.height;
-      console.log('Image aspect ratio:', aspectRatio);
-  
       const settings = DIFFICULTY_SETTINGS[difficulty];
       
       // Adjust base size based on difficulty and aspect ratio
@@ -835,7 +805,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       setLoading(false);
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);
-      toast.error('Failed to load puzzle image. Please try again.');
+      toast.error('Failed to create puzzle pieces');
       setLoading(false);
     }
   };
@@ -1184,48 +1154,51 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       if (!selectedPieceRef.current || !isPlaying) return;
     
       const piece = selectedPieceRef.current;
-      const wasPlaced = handlePiecePlacement(piece, piece.position);
+      const originalPos = piece.userData.originalPosition;
+      const distance = originalPos.distanceTo(piece.position);
+      const rotationDiff = Math.abs(piece.rotation.z % (Math.PI * 2));
     
-      if (!wasPlaced) {
-        // Return to container
-        returnPieceToContainer(piece);
+      const isNearCorrectPosition = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance;
+      const isNearCorrectRotation = rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2;
+    
+      if (isNearCorrectPosition && isNearCorrectRotation && !piece.userData.isPlaced) {
+        handlePieceSnap(piece, particleSystemRef.current);
+        piece.userData.isPlaced = true;
+        
+        setCompletedPieces(prev => {
+          const newCount = prev + 1;
+          const newProgress = (newCount / totalPieces) * 100;
+          setProgress(newProgress);
+          updateProgress(newProgress);
+          return newCount;
+        });
+      } else {
+        // Piece needs to return to a container
+        const leftBound = -1;  // Dividing line between left and right containers
+        const targetContainer = piece.position.x < leftBound ? 'left' : 'right';
+        const containerPieces = puzzlePiecesRef.current.filter(
+          p => p.userData.containerId === targetContainer && !p.userData.isPlaced
+        );
+        
+        // Rearrange pieces in the target container
+        arrangePiecesInContainer(
+          containerPieces.concat(piece),
+          CONTAINER_LAYOUT[targetContainer],
+          calculatePieceSize()
+        );
       }
     
       // Reset piece state
       if (piece.material.uniforms) {
         piece.material.uniforms.selected.value = 0.0;
-        piece.material.uniforms.correctPosition.value = 
-          piece.userData.isPlaced ? 1.0 : 0.0;
+        piece.material.uniforms.correctPosition.value = piece.userData.isPlaced ? 1.0 : 0.0;
       }
     
       selectedPieceRef.current = null;
       controlsRef.current.enabled = true;
     };
     
-    const returnPieceToContainer = (piece) => {
-      const leftBound = -1;
-      const targetContainer = piece.position.x < leftBound ? 'left' : 'right';
-      const containerPieces = puzzlePiecesRef.current.filter(
-        p => p.userData.containerId === targetContainer && !p.userData.isPlaced
-      );
-      
-      arrangePiecesInContainer(
-        containerPieces.concat(piece),
-        CONTAINER_LAYOUT[targetContainer],
-        calculatePieceSize()
-      );
-    
-      // Sync piece return to container
-      syncPieceState(piece.userData.id, {
-        x: piece.position.x,
-        y: piece.position.y,
-        z: piece.position.z,
-        isPlaced: false,
-        lastUpdatedBy: user.uid,
-        timestamp: Date.now()
-      });
-    };
-    
+
     const element = rendererRef.current.domElement;
     element.addEventListener('mousedown', onMouseDown);
     element.addEventListener('mousemove', onMouseMove);
@@ -1366,71 +1339,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
 
     setProgress(syncedProgress);
   }, [gameState?.pieces, syncedProgress, user.uid]);
-
-  useEffect(() => {
-    if (!gameState?.pieces || !totalPieces) return;
-
-    const correctlyPlacedPieces = Object.values(gameState.pieces)
-      .filter(piece => piece.isPlaced)
-      .length;
-
-    const newProgress = (correctlyPlacedPieces / totalPieces) * 100;
-    setProgress(newProgress);
-    updateProgress(newProgress);
-
-    // Check for game completion
-    if (newProgress === 100) {
-      handleGameCompletion();
-    }
-  }, [gameState?.pieces, totalPieces]);
-
-  const handlePiecePlacement = (piece, position) => {
-    const pieceId = piece.userData.id;
-    const isNearCorrect = checkPiecePosition(piece, position);
-  
-    if (isNearCorrect) {
-      // Check if piece is already placed by another player
-      if (gameState?.pieces?.[pieceId]?.isPlaced && 
-          gameState.pieces[pieceId].lastUpdatedBy !== user.uid) {
-        // Move piece back to container
-        returnPieceToContainer(piece);
-        toast.error('Piece already placed by another player');
-        return false;
-      }
-  
-      // Place the piece
-      handlePieceSnap(piece, particleSystemRef.current);
-      piece.userData.isPlaced = true;
-      
-      // Update local state
-      setPlacedPieces(prev => new Set([...prev, pieceId]));
-      
-      // Sync with other players
-      syncPieceState(pieceId, {
-        x: piece.userData.originalPosition.x,
-        y: piece.userData.originalPosition.y,
-        z: piece.userData.originalPosition.z,
-        rotation: 0,
-        isPlaced: true,
-        lastUpdatedBy: user.uid,
-        timestamp: Date.now()
-      });
-  
-      return true;
-    }
-  
-    return false;
-  };
-  
-  const checkPiecePosition = (piece, position) => {
-    const originalPos = piece.userData.originalPosition;
-    const distance = originalPos.distanceTo(position);
-    const rotationDiff = Math.abs(piece.rotation.z % (Math.PI * 2));
-  
-    return distance < DIFFICULTY_SETTINGS[difficulty].snapDistance && 
-           (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled || 
-            rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
-  };
 
   // Render
   if (error) {
@@ -1653,7 +1561,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
           style={{ touchAction: 'none' }}
         />
         {showThumbnail && (
-          <div className="absolute top-20 right-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-700">            <img src={image} alt="Reference" className="w-48 h-auto rounded" />
+          <div className="absolute top-20 right-4 p-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-700">
+            <img src={image} alt="Reference" className="w-48 h-auto rounded" />
           </div>
         )}
         {showTypeSelector && (
