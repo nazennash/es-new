@@ -7,8 +7,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, Pause, Share2, Download, X, RefreshCw } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { auth, nanoid } from '../firebase';
-import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { auth } from '../firebase';
+import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { ref, update, getDatabase } from 'firebase/database';
 import elephant from '../assets/elephant.png';
 import pyramid from '../assets/pyramid.png';
@@ -20,8 +20,6 @@ import { handlePuzzleCompletion, isPuzzleComplete } from './PuzzleCompletionHand
 import UpgradeModal from './UpgradeModal';
 import useUserSubscription from '../hooks/useUserSubscription';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
-import { FaSignOutAlt } from 'react-icons/fa';
 
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
@@ -339,7 +337,7 @@ const PuzzleGame = () => {
   // State declarations
   const subscription = useUserSubscription(auth.currentUser?.uid); // Get subscription status
   const isPremium = subscription.planId === "pro" && subscription.status === "active";
-  const [puzzleCount, setPuzzleCount] = useState(0);
+  const [puzzleCount, setPuzzleCount] = useState(0); // Track puzzle count for the month
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -348,11 +346,11 @@ const PuzzleGame = () => {
   const [totalPieces, setTotalPieces] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [gameState, setGameState] = useState('initial');
+  const [gameState, setGameState] = useState('initial'); // 'initial', 'playing', 'paused'
   const [showThumbnail, setShowThumbnail] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [difficulty, setDifficulty] = useState(4);
+  const [difficulty, setDifficulty] = useState(4); // default difficulty
   const [gameId, setGameId] = useState(null);
   const [completedAchievements, setCompletedAchievements] = useState([]);
   const [showImageSelection, setShowImageSelection] = useState(true);
@@ -386,7 +384,7 @@ const PuzzleGame = () => {
 
   const startGame = async () => {
     if (!image) {
-      toast.error('Please upload an image first');
+      alert('Please upload an image first');
       return;
     }
 
@@ -427,41 +425,6 @@ const PuzzleGame = () => {
       }
     }
   };
-
-  const navigate = useNavigate();
-
-  const saveAndExit = async () => {
-    if (!auth.currentUser) return;
-
-    const db = getFirestore();
-    let newGameId = gameId || nanoid(); // Generate new ID if it doesn't exist
-
-    try {
-      const gameRef = doc(db, 'games', newGameId);
-      await setDoc(gameRef, {
-        userId: auth.currentUser.uid,
-        state: 'in_progress',
-        lastUpdated: serverTimestamp(),
-        completedPieces,
-        totalPieces,
-        timeElapsed,
-        imageUrl: image, // Store puzzle image
-        difficulty,
-        puzzlePieces: puzzlePiecesRef.current.map(piece => ({
-          position: piece.position,
-          rotation: piece.rotation,
-          isPlaced: piece.userData.isPlaced,
-        })),
-      });
-
-      toast.success('Game progress saved. You can continue later.');
-      navigate('/home');
-    } catch (error) {
-      console.error('Error saving game progress:', error);
-      toast.error('Failed to save game progress.');
-    }
-  };
-
 
   // const togglePause = () => {
   //   if (gameState === 'playing') {
@@ -530,7 +493,7 @@ const PuzzleGame = () => {
     // Create main grid container
     const gridWidth = gridSize.x * pieceSize.x;
     const gridHeight = gridSize.y * pieceSize.y;
-
+    
     // Create background plane for entire grid
     const gridBackground = new THREE.Mesh(
       new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
@@ -684,6 +647,10 @@ const PuzzleGame = () => {
           sceneRef.current.add(piece);
           puzzlePiecesRef.current.push(piece);
         });
+
+        resolve();
+      } catch (error) {
+        reject(error);
       }
     });
   };
@@ -692,16 +659,16 @@ const PuzzleGame = () => {
   const arrangePiecesInContainer = (pieces, container, pieceSize) => {
     const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2)); // Increased spacing
     const rows = Math.ceil(pieces.length / cols);
-
+    
     pieces.forEach((piece, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
-
+      
       // Calculate position with more spacing
-      piece.position.x = container.position.x - container.dimensions.width / 2 +
-        (col + 0.5) * (container.dimensions.width / cols);
-      piece.position.y = container.position.y + container.dimensions.height / 2 -
-        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.x = container.position.x - container.dimensions.width/2 + 
+                        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height/2 - 
+                        (row + 0.5) * (container.dimensions.height / rows);
       piece.position.z = 0.01; // Slightly raised to avoid z-fighting
     });
   };
@@ -1451,154 +1418,126 @@ const PuzzleGame = () => {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800 overflow-hidden">
-      {/* Top Navigation Bar */}
-      <div className="px-4 sm:px-6 py-3 sm:py-4 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-        {/* Logo/Title and Game Controls */}
-        <div className="flex flex-col md:flex-row items-center gap-3 sm:gap-4 w-full sm:w-auto">
-          {/* Logo/Title */}
-          <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
-            Cultural Puzzle
-          </h1>
-
-          {/* Game Controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowImageSelection(true)}
-              className="px-3 sm:px-4 py-1 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors text-sm sm:text-base"
-            >
-              <Image className="w-4 h-4" />
-              <span>Select Image</span>
-            </button>
-
-            <button
-              onClick={saveAndExit}
-              className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-              title="Save and Exit"
-            >
-              <FaSignOutAlt className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-
-            {/* Timer Display */}
-            <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
-              <Clock className="w-4 h-4 text-blue-400" />
-              <span className="text-white font-mono text-sm sm:text-base">
-                {formatTime(timeElapsed)}
-              </span>
-            </div>
-
-            {/* Difficulty Bar */}
-            <DifficultyBar
-              selectedDifficulty={selectedDifficulty}
-              onSelect={handleDifficultyChange}
-            />
-
-            {/* Pause/Play Button */}
-            {gameState !== 'initial' && (
+    <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
+      {/* Main Header */}
+      <header className="px-4 py-3 bg-gray-800/90 backdrop-blur-sm border-b border-gray-700 shadow-lg">
+        <div className="container mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Left Section: Title and Image Selection */}
+            <div className="flex flex-wrap items-center gap-4">
+              <h1 className="text-2xl font-bold text-white">Cultural Puzzle</h1>
               <button
-                onClick={togglePause}
-                className="p-1 sm:p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                onClick={() => setShowImageSelection(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-105"
               >
-                {gameState === 'playing' ? <Pause /> : <Play />}
+                <Image className="w-5 h-5 mr-2" />
+                <span>Select Image</span>
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* Game Stats */}
-        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-normal">
-          {/* Timer Display (Duplicate for mobile layout) */}
-          <div className="flex items-center gap-2 bg-gray-700/50 px-3 sm:px-4 py-1 sm:py-2 rounded-lg">
-            <Clock className="w-4 h-4 text-blue-400" />
-            <span className="text-white font-mono text-sm sm:text-base">
-              {formatTime(timeElapsed)}
-            </span>
-          </div>
-
-          {/* Progress Bar */}
-          {totalPieces > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-gray-400 hidden sm:block">Progress</div>
-              <div className="w-24 sm:w-40 h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="text-white font-medium text-sm sm:text-base">
-                {Math.round(progress)}%
-              </div>
             </div>
-          )}
+
+            {/* Right Section: Timer and Controls */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
+                <Clock className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-mono text-lg">
+                  {formatTime(timeElapsed)}
+                </span>
+              </div>
+              {gameState !== 'initial' && (
+                <button
+                  onClick={togglePause}
+                  className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all transform hover:scale-105"
+                >
+                  {gameState === 'playing' ? 
+                    <Pause className="w-6 h-6" /> : 
+                    <Play className="w-6 h-6" />
+                  }
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Progress and Difficulty Section */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            {totalPieces > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-gray-300 text-sm">Progress</span>
+                <div className="flex-1 h-3 bg-gray-700/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-white font-medium min-w-[3rem] text-right">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <DifficultyBar
+                selectedDifficulty={selectedDifficulty}
+                onSelect={handleDifficultyChange}
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Game Area */}
       <div className="flex-1 relative overflow-hidden">
+        {/* Puzzle Container */}
         <div ref={containerRef} className="w-full h-full" />
 
-        {/* Side Controls */}
-        <div className="absolute right-2 sm:right-6 top-2 sm:top-6 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg">
-          <button
-            onClick={handleZoomIn}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <button
-            onClick={handleZoomOut}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <div className="w-full h-px bg-gray-700 my-1" />
-          <button
-            onClick={handleResetView}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Reset View"
-          >
-            <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <button
-            onClick={handleResetGame}
-            className="p-2 hover:bg-gray-700 text-white rounded transition-colors"
-            title="Reset Puzzle"
-          >
-            <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <div className="w-full h-px bg-gray-700 my-1" />
-          <button
+        {/* Floating Controls */}
+        <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg shadow-lg">
+          <ControlButton icon={<ZoomIn />} onClick={handleZoomIn} tooltip="Zoom In" />
+          <ControlButton icon={<ZoomOut />} onClick={handleZoomOut} tooltip="Zoom Out" />
+          <div className="w-full h-px bg-gray-700" />
+          <ControlButton icon={<Maximize2 />} onClick={handleResetView} tooltip="Reset View" />
+          <ControlButton icon={<RotateCcw />} onClick={handleResetGame} tooltip="Reset Puzzle" />
+          <ControlButton icon={<RefreshCw />} onClick={replayPuzzle} tooltip="Replay Puzzle" />
+          <ControlButton
+            icon={<Image />}
             onClick={() => setShowThumbnail(!showThumbnail)}
-            className={`p-2 text-white rounded transition-colors ${showThumbnail ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-700'
-              }`}
-            title="Toggle Reference Image"
-          >
-            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+            tooltip="Toggle Reference"
+            active={showThumbnail}
+          />
         </div>
 
         {/* Reference Image */}
-        {showThumbnail && image && (
-          <div className="absolute left-2 sm:left-6 top-2 sm:top-6 p-2 sm:p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl">
-            <img
-              src={image}
-              alt="Reference"
-              className="w-32 sm:w-48 h-auto rounded border border-gray-700"
-            />
-          </div>
-        )}
+        <AnimatePresence>
+          {showThumbnail && image && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="fixed left-4 top-24 p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl"
+            >
+              <img
+                src={image}
+                alt="Reference"
+                className="w-40 md:w-48 h-auto rounded border border-gray-700"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <div className="text-xl text-white font-medium">Loading puzzle...</div>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm"
+            >
+              <div className="flex flex-col items-center gap-4 p-6 rounded-lg bg-gray-800/90">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="text-xl text-white font-medium">Loading puzzle...</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Image Selection Modal */}
@@ -1613,14 +1552,13 @@ const PuzzleGame = () => {
             setCompletedPieces(0);
             setProgress(0);
             setTimeElapsed(0);
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-            }
           });
         }}
         isOpen={showImageSelection}
         onClose={() => setShowImageSelection(false)}
       />
+
+      {/* Upgrade Modal */}
       <UpgradeModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -1631,18 +1569,20 @@ const PuzzleGame = () => {
       {showShareModal && <ShareModal />}
     </div>
   );
-}; 
+}; // Add missing closing brace for PuzzleGame component
 
 // Add the ControlButton component as a separate component
 const ControlButton = ({ icon, onClick, tooltip, active = false }) => (
   <button
     onClick={onClick}
-    className={`p-2 rounded transition-all transform hover:scale-110 ${active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-      }`}
+    className={`p-2 rounded transition-all transform hover:scale-110 ${
+      active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+    }`}
     title={tooltip}
   >
     {icon}
   </button>
 );
 
+// 7. Export
 export default PuzzleGame;
