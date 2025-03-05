@@ -85,8 +85,10 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
       });
 
       const progressListener = onValue(progressRef, (snapshot) => {
-        setProgress(snapshot.val() || 0);
+        const newProgress = snapshot.val() || 0;
+        setProgress(prevProgress => (newProgress > prevProgress ? newProgress : prevProgress));
       });
+      
 
       // Listen for difficulty changes
       const difficultyRef = ref(database, `games/${gameId}/difficulty`);
@@ -270,17 +272,22 @@ export const useMultiplayerGame = (gameId, isHost = false) => {
   // Update progress
   const updateProgress = useCallback(async (newProgress) => {
     if (!gameId) return;
-
+  
+    // Prevent rollback in Firebase
+    const currentProgressSnapshot = await get(ref(database, `games/${gameId}/progress`));
+    const currentProgress = currentProgressSnapshot.val() || 0;
+  
+    if (newProgress <= currentProgress) return; // Skip update if the new value is not higher
+  
     try {
-      await update(ref(database, `games/${gameId}`), {
-        progress: newProgress,
-      });
+      await update(ref(database, `games/${gameId}`), { progress: newProgress });
+      console.log("✅ Firebase Progress Updated:", newProgress);
     } catch (error) {
-      console.error('Update progress error:', error);
-      setError('Failed to update progress');
-      toast.error('Failed to update progress');
+      console.error("❌ Failed to update progress:", error);
+      toast.error("Failed to update progress");
     }
   }, [gameId]);
+  
 
   // Update difficulty
   const updateDifficulty = useCallback(async (newDifficulty) => {

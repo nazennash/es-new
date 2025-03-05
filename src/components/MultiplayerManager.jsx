@@ -7,8 +7,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
-import { Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play, 
-         Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings } from 'lucide-react';
+import {
+  Camera, Check, Info, Clock, ZoomIn, ZoomOut, Maximize2, RotateCcw, Image, Play,
+  Pause, Trophy, Users, Mouse, ZapIcon, Menu, X, Settings
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // 2. Constants
@@ -32,7 +34,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 5),
     description: 'Standard rectangle format',
     settings: {
-      aspectRatio: 4/3,
+      aspectRatio: 4 / 3,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -42,7 +44,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 6),
     description: 'Tall rectangular format',
     settings: {
-      aspectRatio: 2/3,
+      aspectRatio: 2 / 3,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -52,7 +54,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 7),
     description: 'Wide rectangular format',
     settings: {
-      aspectRatio: 16/9,
+      aspectRatio: 16 / 9,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -62,7 +64,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 5),
     description: 'Perfect square format',
     settings: {
-      aspectRatio: 1/1,
+      aspectRatio: 1 / 1,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -72,7 +74,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 7),
     description: 'Very tall format',
     settings: {
-      aspectRatio: 3/5,
+      aspectRatio: 3 / 5,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -82,7 +84,7 @@ const PUZZLE_TYPES = {
     cameraPosition: new THREE.Vector3(0, 0, 7),
     description: 'Very wide format',
     settings: {
-      aspectRatio: 21/9,
+      aspectRatio: 21 / 9,
       snapThreshold: 0.25,
       rotationEnabled: false
     }
@@ -191,7 +193,7 @@ class ParticleSystem {
   constructor(scene) {
     this.particles = [];
     this.scene = scene;
-    
+
     const geometry = new THREE.BufferGeometry();
     const material = new THREE.PointsMaterial({
       size: 0.05,
@@ -201,7 +203,7 @@ class ParticleSystem {
       depthWrite: false,
       vertexColors: true
     });
-    
+
     this.particleSystem = new THREE.Points(geometry, material);
     scene.add(this.particleSystem);
   }
@@ -211,14 +213,14 @@ class ParticleSystem {
     canvas.width = 32;
     canvas.height = 32;
     const context = canvas.getContext('2d');
-    
+
     const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
     gradient.addColorStop(0, 'rgba(255,255,255,1)');
     gradient.addColorStop(1, 'rgba(255,255,255,0)');
-    
+
     context.fillStyle = gradient;
     context.fillRect(0, 0, 32, 32);
-    
+
     const texture = new THREE.Texture(canvas);
     texture.needsUpdate = true;
     return texture;
@@ -268,19 +270,19 @@ class ParticleSystem {
     const positions = new Float32Array(this.particles.length * 3);
     const colors = new Float32Array(this.particles.length * 3);
     const sizes = new Float32Array(this.particles.length);
-    
+
     this.particles.forEach((particle, i) => {
       positions[i * 3] = particle.position.x;
       positions[i * 3 + 1] = particle.position.y;
       positions[i * 3 + 2] = particle.position.z;
-      
+
       colors[i * 3] = particle.color.r;
       colors[i * 3 + 1] = particle.color.g;
       colors[i * 3 + 2] = particle.color.b;
-      
+
       sizes[i] = particle.size * particle.life;
     });
-    
+
     this.particleSystem.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     this.particleSystem.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     this.particleSystem.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
@@ -290,7 +292,7 @@ class ParticleSystem {
 // Add setupCamera function after constants
 const setupCamera = (puzzleType) => {
   if (!cameraRef.current || !controlsRef.current) return;
-  
+
   const settings = PUZZLE_TYPES[puzzleType];
   if (!settings) return;
 
@@ -303,7 +305,7 @@ const setupCamera = (puzzleType) => {
 const calculatePieceSize = (gridSize, aspectRatio = 1) => {
   const baseSize = 4; // Base size for the puzzle grid
   const maxWidth = baseSize * aspectRatio;
-  
+
   return {
     x: (maxWidth / gridSize.x) * 0.98, // 0.98 to add small gap between pieces
     y: (baseSize / gridSize.y) * 0.98
@@ -322,11 +324,10 @@ const DifficultyMenu = ({ current, onChange, isHost }) => (
           key={diff}
           onClick={() => onChange(diff)}
           disabled={!isHost}
-          className={`w-full p-2 mb-1 rounded-md flex items-center justify-between ${
-            current === diff 
-              ? 'bg-blue-500/20 text-blue-400' 
-              : 'text-gray-300 hover:bg-gray-700/50'
-          } transition-colors disabled:opacity-50`}
+          className={`w-full p-2 mb-1 rounded-md flex items-center justify-between ${current === diff
+            ? 'bg-blue-500/20 text-blue-400'
+            : 'text-gray-300 hover:bg-gray-700/50'
+            } transition-colors disabled:opacity-50`}
         >
           <span className="capitalize">{diff}</span>
           {current === diff && <Check size={16} />}
@@ -343,27 +344,27 @@ const StatsPanel = ({ stats }) => (
     </div>
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-2 gap-4">
-        <StatItem 
-          label="Moves" 
-          value={stats.moveCount} 
-          icon={<Mouse className="w-4 h-4 text-blue-400" />} 
+        <StatItem
+          label="Moves"
+          value={stats.moveCount}
+          icon={<Mouse className="w-4 h-4 text-blue-400" />}
         />
-        <StatItem 
-          label="Accuracy" 
-          value={`${stats.moveCount > 0 
+        <StatItem
+          label="Accuracy"
+          value={`${stats.moveCount > 0
             ? Math.round((stats.accurateDrops / stats.moveCount) * 100)
-            : 0}%`} 
-          icon={<Check className="w-4 h-4 text-green-400" />} 
+            : 0}%`}
+          icon={<Check className="w-4 h-4 text-green-400" />}
         />
-        <StatItem 
-          label="Points" 
-          value={stats.points} 
-          icon={<Trophy className="w-4 h-4 text-yellow-400" />} 
+        <StatItem
+          label="Points"
+          value={stats.points}
+          icon={<Trophy className="w-4 h-4 text-yellow-400" />}
         />
-        <StatItem 
-          label="Combo" 
-          value={`${stats.combos}x`} 
-          icon={<ZapIcon className="w-4 h-4 text-purple-400" />} 
+        <StatItem
+          label="Combo"
+          value={`${stats.combos}x`}
+          icon={<ZapIcon className="w-4 h-4 text-purple-400" />}
         />
       </div>
       <div className="mt-2">
@@ -398,7 +399,7 @@ const FloatingPanel = ({ title, icon: Icon, children, isOpen, onClose, position 
     right: "right-4",
     center: "left-1/2 -translate-x-1/2"
   };
-  
+
   return (
     <div className={`
       fixed ${positionClasses[position]} top-20 
@@ -446,7 +447,7 @@ const TutorialOverlay = ({ onClose }) => (
           <Trophy className="text-blue-400" /> Earn bonus points for quick & accurate placements
         </li>
       </ul>
-      <button 
+      <button
         onClick={onClose}
         className="w-full py-2 bg-blue-500 rounded hover:bg-blue-600"
       >
@@ -458,7 +459,7 @@ const TutorialOverlay = ({ onClose }) => (
 
 const MobilePanel = ({ isOpen, onClose, title, children, icon: Icon }) => {
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden">
       <div className="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-2xl max-h-[80vh] overflow-hidden">
@@ -488,11 +489,10 @@ const PuzzleTypeSelector = ({ onSelect, currentType, onClose }) => (
       <button
         key={type}
         onClick={() => onSelect(type)}
-        className={`w-full p-4 rounded-lg ${
-          currentType === type 
-            ? 'bg-blue-500/20 text-blue-400' 
-            : 'text-gray-300 hover:bg-gray-700/50'
-        } transition-colors`}
+        className={`w-full p-4 rounded-lg ${currentType === type
+          ? 'bg-blue-500/20 text-blue-400'
+          : 'text-gray-300 hover:bg-gray-700/50'
+          } transition-colors`}
       >
         <div className="flex flex-col items-start gap-1">
           <span className="text-lg font-medium">{config.name}</span>
@@ -599,7 +599,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   useEffect(() => {
     console.log("MultiplayerManager received puzzleType:", puzzleType);
   }, [puzzleType]);
-  
+
 
   const resetGame = () => {
     startGame();
@@ -629,7 +629,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   const celebrateProgress = (progress) => {
     if (progress % 25 === 0) {
       const confettiParticles = [];
-      
+
       particleSystemRef.current.emitMultiple(confettiParticles);
       new Audio('/sounds/celebration.mp3').play();
       toast.success(`${progress}% Complete! Keep going! 🎉`);
@@ -639,26 +639,27 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   const arrangePiecesInContainer = (pieces, container, pieceSize) => {
     const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2));
     const rows = Math.ceil(pieces.length / cols);
-    
+
     pieces.forEach((piece, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
-      
+
       // Calculate position within container grid
-      piece.position.x = container.position.x - container.dimensions.width/2 + 
-                        (col + 0.5) * (container.dimensions.width / cols);
-      piece.position.y = container.position.y + container.dimensions.height/2 - 
-                        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.x = container.position.x - container.dimensions.width / 2 +
+        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height / 2 -
+        (row + 0.5) * (container.dimensions.height / rows);
       piece.position.z = 0.01;
-      
+
       // Store container info in piece userData
       piece.userData.containerId = container === CONTAINER_LAYOUT.left ? 'left' : 'right';
     });
   };
 
   const createPuzzlePieces = async (imageUrl, puzzleType = 'classic') => {
+    console.log(imageUrl);
     if (!sceneRef.current) return;
-  
+
     // Clear existing pieces
     puzzlePiecesRef.current.forEach(piece => {
       if (piece.geometry) piece.geometry.dispose();
@@ -666,17 +667,17 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       if (piece.parent) piece.parent.remove(piece);
     });
     puzzlePiecesRef.current = [];
-  
+
     try {
       const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
       const aspectRatio = texture.image.width / texture.image.height;
       const settings = DIFFICULTY_SETTINGS[difficulty];
-  
+
       // Adjust base size based on difficulty and aspect ratio
       let baseSize = 4;
       let gridX = settings.grid.x;
       let gridY = settings.grid.y;
-  
+
       // Adjust grid and piece size based on puzzle type
       switch (puzzleType) {
         case 'vertical':
@@ -709,19 +710,19 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           baseSize = 4 / (4 / 3); // Adjust base size for classic aspect ratio
           break;
       }
-  
+
       const pieceSize = {
         x: (baseSize * aspectRatio) / gridX,
         y: baseSize / gridY
       };
-  
+
       // Create containers with adjusted sizes
       const containerWidth = Math.max(pieceSize.x * gridX * 0.6, 2);
       CONTAINER_LAYOUT.left.dimensions.width = containerWidth;
       CONTAINER_LAYOUT.right.dimensions.width = containerWidth;
       CONTAINER_LAYOUT.left.position.x = -(containerWidth + 1);
       CONTAINER_LAYOUT.right.position.x = containerWidth + 1;
-  
+
       // Create containers first (only for 2D puzzles)
       if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
         Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
@@ -742,7 +743,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           sceneRef.current.add(container);
         });
       }
-  
+
       const pieces = [];
       for (let y = 0; y < gridY; y++) {
         for (let x = 0; x < gridX; x++) {
@@ -771,7 +772,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
               );
               break;
           }
-  
+
           const material = new THREE.ShaderMaterial({
             uniforms: {
               map: { value: texture },
@@ -787,9 +788,9 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
             fragmentShader: puzzlePieceShader.fragmentShader,
             side: THREE.DoubleSide
           });
-  
+
           const piece = new THREE.Mesh(geometry, material);
-  
+
           // Store original position for snapping
           piece.userData.originalPosition = new THREE.Vector3(
             (x - (gridX - 1) / 2) * pieceSize.x,
@@ -799,18 +800,18 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           piece.userData.gridPosition = { x, y };
           piece.userData.id = `piece_${x}_${y}`;
           piece.userData.isPlaced = false;
-  
+
           pieces.push(piece);
         }
       }
-  
+
       // Distribute pieces between containers (only for 2D puzzles)
       if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
         const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
         const halfLength = Math.ceil(shuffledPieces.length / 2);
         const leftPieces = shuffledPieces.slice(0, halfLength);
         const rightPieces = shuffledPieces.slice(halfLength);
-  
+
         // Arrange pieces in containers
         arrangePiecesInContainer(leftPieces, CONTAINER_LAYOUT.left, pieceSize);
         arrangePiecesInContainer(rightPieces, CONTAINER_LAYOUT.right, pieceSize);
@@ -824,7 +825,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           );
         });
       }
-  
+
       // Add all pieces to scene and synchronize with other players
       pieces.forEach(piece => {
         sceneRef.current.add(piece);
@@ -837,7 +838,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           isPlaced: false
         });
       });
-  
+
       setTotalPieces(gridX * gridY);
       if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
         createPlacementGuides({ x: gridX, y: gridY }, pieceSize);
@@ -849,15 +850,17 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       setLoading(false);
     }
   };
+
   
+
   // const createPlacementGuides = (gridSize, pieceSize) => {
   //   guideOutlinesRef.current.forEach(guide => sceneRef.current.remove(guide));
   //   guideOutlinesRef.current = [];
-  
+
   //   // Create main grid container
   //   const gridWidth = gridSize.x * pieceSize.x;
   //   const gridHeight = gridSize.y * pieceSize.y;
-    
+
   //   // Create background plane for entire grid
   //   const gridBackground = new THREE.Mesh(
   //     new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
@@ -870,7 +873,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   //   gridBackground.position.z = -0.02;
   //   sceneRef.current.add(gridBackground);
   //   guideOutlinesRef.current.push(gridBackground);
-  
+
   //   // Create individual cell outlines
   //   for (let y = 0; y < gridSize.y; y++) {
   //     for (let x = 0; x < gridSize.x; x++) {
@@ -883,15 +886,15 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   //         opacity: 0.15
   //       });
   //       const cell = new THREE.Mesh(cellGeometry, cellMaterial);
-  
+
   //       // Position the cell
   //       cell.position.x = (x - (gridSize.x - 1) / 2) * pieceSize.x;
   //       cell.position.y = (y - (gridSize.y - 1) / 2) * pieceSize.y;
   //       cell.position.z = -0.015;
-  
+
   //       sceneRef.current.add(cell);
   //       guideOutlinesRef.current.push(cell);
-  
+
   //       // Create cell outline
   //       const outlineGeometry = new THREE.EdgesGeometry(cellGeometry);
   //       const outlineMaterial = new THREE.LineBasicMaterial({
@@ -903,13 +906,13 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   //       const outline = new THREE.LineSegments(outlineGeometry, outlineMaterial);
   //       outline.position.copy(cell.position);
   //       outline.position.z = -0.01;
-  
+
   //       sceneRef.current.add(outline);
   //       guideOutlinesRef.current.push(outline);
   //     }
   //   }
   // };
-  
+
   const handlePieceSnap = (piece, particleSystem) => {
     const originalPos = piece.userData.originalPosition;
     const originalRot = new THREE.Euler(0, 0, 0);
@@ -917,36 +920,33 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
     const startPos = piece.position.clone();
     const startRot = piece.rotation.clone();
     const startTime = Date.now();
-  
-    // Play snap sound and show particles before animation
+
+    console.log("Snap Start");
+
     if (particleSystem) {
       particleSystem.emit(piece.position, 30, new THREE.Color(0x4a90e2));
     }
-  
+
     const animate = () => {
       const progress = Math.min((Date.now() - startTime) / (duration * 1000), 1);
-      const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
-  
-      // Position interpolation
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+
       piece.position.lerpVectors(startPos, originalPos, easeProgress);
-  
-      // Rotation interpolation
       piece.rotation.x = THREE.MathUtils.lerp(startRot.x, originalRot.x, easeProgress);
       piece.rotation.y = THREE.MathUtils.lerp(startRot.y, originalRot.y, easeProgress);
       piece.rotation.z = THREE.MathUtils.lerp(startRot.z, originalRot.z, easeProgress);
-  
+
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Ensure final position and rotation are exact
         piece.position.copy(originalPos);
         piece.rotation.copy(originalRot);
-        
-        // Update piece state
+
+        // ✅ Mark piece as placed
         piece.userData.isPlaced = true;
         piece.material.uniforms.correctPosition.value = 1.0;
-        
-        // Sync final state with other players
+
+        // ✅ Sync state with other players
         syncPieceState(piece.userData.id, {
           x: originalPos.x,
           y: originalPos.y,
@@ -954,41 +954,50 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
           rotation: 0,
           isPlaced: true
         });
-  
-        // Update completion progress
+
+        // ✅ Update completion progress
         setCompletedPieces(prev => {
           const newCount = prev + 1;
           const newProgress = (newCount / totalPieces) * 100;
           setProgress(newProgress);
           updateProgress(newProgress);
-          
-          // Check for puzzle completion
+          console.log("Progress Update");
+
+          // ✅ Check if puzzle is complete
           if (newProgress === 100) {
             handleGameCompletion();
           }
           return newCount;
         });
-  
+
         // Show completion particles
         if (particleSystem) {
           particleSystem.emit(piece.position, 20, new THREE.Color(0x00ff00));
         }
       }
     };
-  
+
+    console.log("Snap End");
+
     animate();
   };
-  
+
+  useEffect(() => {
+    console.log("Progress State Updated:", progress);
+  }, [progress]);
+
+
+
   // Event handlers
   const handleGameCompletion = async () => {
     const endTime = Date.now();
     const completionTime = endTime - gameStats.startTime;
     const accuracy = (gameStats.accurateDrops / gameStats.moveCount) * 100;
-    
+
     const timeBonus = Math.max(0, 1000 - Math.floor(completionTime / 1000)) * 2;
     const accuracyBonus = Math.floor(accuracy) * 10;
     const finalPoints = gameStats.points + POINTS.COMPLETION_BONUS + timeBonus + accuracyBonus;
-    
+
     const finalScore = {
       userId: user.uid,
       userName: user.displayName || user.email,
@@ -1006,7 +1015,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       winner: finalScore,
       endedAt: endTime
     });
-    
+
     setLeaderboard(prev => [...prev, finalScore].sort((a, b) => b.accurateDrops - a.accurateDrops));
     toast.success('Puzzle completed! 🎉');
     updateProgress(100);
@@ -1060,7 +1069,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
-    
+
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
@@ -1071,7 +1080,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       requestAnimationFrame(animate);
       const deltaTime = clockRef.current.getDelta();
       const time = clockRef.current.getElapsedTime();
-      
+
       controls.update();
       particleSystemRef.current.update(deltaTime);
 
@@ -1093,6 +1102,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       renderer.setSize(newWidth, newHeight);
       composer.setSize(newWidth, newHeight);
     };
+
 
     window.addEventListener('resize', handleResize);
 
@@ -1127,10 +1137,10 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      
+
       raycaster.setFromCamera(mouse, cameraRef.current);
       const intersects = raycaster.intersectObjects(puzzlePiecesRef.current);
-      
+
       if (intersects.length > 0) {
         const piece = intersects[0].object;
         if (!piece.userData.isPlaced) {
@@ -1148,23 +1158,25 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
       }
     };
 
+
+
     const onMouseMove = (event) => {
       if (!isDragging || !selectedPieceRef.current || !isPlaying) return;
 
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    
+
       raycaster.setFromCamera(mouse, cameraRef.current);
       const intersectPoint = new THREE.Vector3();
       raycaster.ray.intersectPlane(
         new THREE.Plane(new THREE.Vector3(0, 0, 1)),
         intersectPoint
       );
-    
+
       // Update piece position
       selectedPieceRef.current.position.copy(intersectPoint);
-      
+
       // Sync position with other players
       updatePiecePosition(selectedPieceRef.current.userData.id, {
         x: intersectPoint.x,
@@ -1173,58 +1185,58 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
         rotation: selectedPieceRef.current.rotation.z,
         lastUpdatedBy: user.uid
       });
-    
+
       // Check for snapping preview
       const originalPos = selectedPieceRef.current.userData.originalPosition;
       const distance = originalPos.distanceTo(selectedPieceRef.current.position);
       const rotationDiff = Math.abs(selectedPieceRef.current.rotation.z % (Math.PI * 2));
-    
+
       // Update shader feedback
       if (selectedPieceRef.current.material.uniforms) {
         const isNearCorrect = distance < DIFFICULTY_SETTINGS[difficulty].snapDistance &&
-                             (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled || 
-                              rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
-        
-        selectedPieceRef.current.material.uniforms.correctPosition.value = 
+          (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled ||
+            rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
+
+        selectedPieceRef.current.material.uniforms.correctPosition.value =
           isNearCorrect ? 0.5 : 0.0;
       }
     };
-    
+
     const onMouseUp = () => {
       if (!selectedPieceRef.current || !isPlaying) return;
-    
+
       const piece = selectedPieceRef.current;
       const wasPlaced = handlePiecePlacement(piece, piece.position);
-    
+
       if (!wasPlaced) {
         // Return to container
         returnPieceToContainer(piece);
       }
-    
+
       // Reset piece state
       if (piece.material.uniforms) {
         piece.material.uniforms.selected.value = 0.0;
-        piece.material.uniforms.correctPosition.value = 
+        piece.material.uniforms.correctPosition.value =
           piece.userData.isPlaced ? 1.0 : 0.0;
       }
-    
+
       selectedPieceRef.current = null;
       controlsRef.current.enabled = true;
     };
-    
+
     const returnPieceToContainer = (piece) => {
       const leftBound = -1;
       const targetContainer = piece.position.x < leftBound ? 'left' : 'right';
       const containerPieces = puzzlePiecesRef.current.filter(
         p => p.userData.containerId === targetContainer && !p.userData.isPlaced
       );
-      
+
       arrangePiecesInContainer(
         containerPieces.concat(piece),
         CONTAINER_LAYOUT[targetContainer],
         calculatePieceSize()
       );
-    
+
       // Sync piece return to container
       syncPieceState(piece.userData.id, {
         x: piece.position.x,
@@ -1235,7 +1247,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
         timestamp: Date.now()
       });
     };
-    
+
     const element = rendererRef.current.domElement;
     element.addEventListener('mousedown', onMouseDown);
     element.addEventListener('mousemove', onMouseMove);
@@ -1257,7 +1269,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
     // Create main grid container
     const gridWidth = gridSize.x * pieceSize.x;
     const gridHeight = gridSize.y * pieceSize.y;
-    
+
     // Create background plane for entire grid
     const gridBackground = new THREE.Mesh(
       new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
@@ -1380,41 +1392,89 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   useEffect(() => {
     if (!gameState?.pieces || !totalPieces) return;
 
-    const correctlyPlacedPieces = Object.values(gameState.pieces)
-      .filter(piece => piece.isPlaced)
-      .length;
+    const placedPieceIds = new Set(
+      Object.keys(gameState.pieces).filter(id => gameState.pieces[id].isPlaced)
+    );
 
-    const newProgress = (correctlyPlacedPieces / totalPieces) * 100;
+    setPlacedPieces(placedPieceIds);
+
+    // Restore placed pieces visually
+    puzzlePiecesRef.current.forEach(piece => {
+      if (placedPieceIds.has(piece.userData.id)) {
+        piece.userData.isPlaced = true;
+        piece.position.copy(piece.userData.originalPosition);
+        if (piece.material.uniforms) {
+          piece.material.uniforms.correctPosition.value = 1.0;
+        }
+      }
+    });
+
+    // Calculate progress based on placed pieces
+    const newProgress = (placedPieceIds.size / totalPieces) * 100;
     setProgress(newProgress);
     updateProgress(newProgress);
-
-    // Check for game completion
-    if (newProgress === 100) {
-      handleGameCompletion();
-    }
   }, [gameState?.pieces, totalPieces]);
+
+  useEffect(() => {
+    if (!gameState?.pieces || !puzzlePiecesRef.current.length) return;
+  
+    // Synchronize puzzle pieces with Firebase state
+    Object.entries(gameState.pieces).forEach(([pieceId, pieceData]) => {
+      const piece = puzzlePiecesRef.current.find(p => p.userData.id === pieceId);
+      if (piece) {
+        piece.position.set(pieceData.x, pieceData.y, pieceData.z);
+        if (pieceData.rotation !== undefined) {
+          piece.rotation.z = pieceData.rotation;
+        }
+        piece.userData.isPlaced = pieceData.isPlaced;
+        if (piece.material.uniforms) {
+          piece.material.uniforms.correctPosition.value = pieceData.isPlaced ? 1.0 : 0.0;
+        }
+      }
+    });
+  
+    // Calculate progress based on placed pieces
+    const placedPieceIds = new Set(
+      Object.keys(gameState.pieces).filter(id => gameState.pieces[id].isPlaced)
+    );
+    const newProgress = (placedPieceIds.size / totalPieces) * 100;
+    setProgress(newProgress);
+    updateProgress(newProgress);
+  }, [gameState?.pieces, totalPieces]);
+
+  useEffect(() => {
+    if (gameState?.progress !== undefined) {
+      setProgress(prevProgress => (gameState.progress > prevProgress ? gameState.progress : prevProgress));
+    }
+  }, [gameState?.progress]);
+  
+  
+
+
+
+
 
   const handlePiecePlacement = (piece, position) => {
     const pieceId = piece.userData.id;
     const isNearCorrect = checkPiecePosition(piece, position);
-  
+
     if (isNearCorrect) {
       // Check if piece is already placed by another player
-      if (gameState?.pieces?.[pieceId]?.isPlaced && 
-          gameState.pieces[pieceId].lastUpdatedBy !== user.uid) {
+      if (gameState?.pieces?.[pieceId]?.isPlaced &&
+        gameState.pieces[pieceId].lastUpdatedBy !== user.uid) {
         // Move piece back to container
         returnPieceToContainer(piece);
         toast.error('Piece already placed by another player');
         return false;
       }
-  
+
       // Place the piece
       handlePieceSnap(piece, particleSystemRef.current);
       piece.userData.isPlaced = true;
-      
+
       // Update local state
       setPlacedPieces(prev => new Set([...prev, pieceId]));
-      
+
       // Sync with other players
       syncPieceState(pieceId, {
         x: piece.userData.originalPosition.x,
@@ -1425,21 +1485,21 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
         lastUpdatedBy: user.uid,
         timestamp: Date.now()
       });
-  
+
       return true;
     }
-  
+
     return false;
   };
-  
+
   const checkPiecePosition = (piece, position) => {
     const originalPos = piece.userData.originalPosition;
     const distance = originalPos.distanceTo(position);
     const rotationDiff = Math.abs(piece.rotation.z % (Math.PI * 2));
-  
-    return distance < DIFFICULTY_SETTINGS[difficulty].snapDistance && 
-           (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled || 
-            rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
+
+    return distance < DIFFICULTY_SETTINGS[difficulty].snapDistance &&
+      (!DIFFICULTY_SETTINGS[difficulty].rotationEnabled ||
+        rotationDiff < 0.2 || Math.abs(rotationDiff - Math.PI * 2) < 0.2);
   };
 
   // Render
@@ -1625,11 +1685,10 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
                 setActiveMobilePanel(null);
               }}
               disabled={!isHost}
-              className={`w-full p-4 rounded-lg flex items-center justify-between ${
-                difficulty === diff 
-                  ? 'bg-blue-500/20 text-blue-400' 
-                  : 'text-white hover:bg-gray-700/50'
-              } transition-colors disabled:opacity-50`}
+              className={`w-full p-4 rounded-lg flex items-center justify-between ${difficulty === diff
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'text-white hover:bg-gray-700/50'
+                } transition-colors disabled:opacity-50`}
             >
               <span className="text-lg capitalize">{diff}</span>
               {difficulty === diff && <Check className="w-6 h-6" />}
@@ -1657,8 +1716,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
             <div className="text-white text-xl">Loading puzzle...</div>
           </div>
         )}
-        <div 
-          ref={containerRef} 
+        <div
+          ref={containerRef}
           className="w-full h-[calc(100vh-64px)]"
           style={{ touchAction: 'none' }}
         />
