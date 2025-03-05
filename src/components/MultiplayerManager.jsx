@@ -504,7 +504,7 @@ const PuzzleTypeSelector = ({ onSelect, currentType, onClose }) => (
 );
 
 // 6. Main Component
-const MultiplayerManager = ({ gameId, isHost, user, image }) => {
+const MultiplayerManager = ({ gameId, isHost, user, image, puzzleType }) => {
   // State declarations
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -526,7 +526,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const [showTutorial, setShowTutorial] = useState(true);
   const [lastHoveredPiece, setLastHoveredPiece] = useState(null);
   const [currentSnapGuide, setCurrentSnapGuide] = useState(null);
-  const [puzzleType, setPuzzleType] = useState('classic');
+  // const [puzzleType, setPuzzleType] = useState('classic');
   const [activePanel, setActivePanel] = useState(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState(null);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -596,6 +596,11 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     }
   }, [gameState?.status, image]);
 
+  useEffect(() => {
+    console.log("MultiplayerManager received puzzleType:", puzzleType);
+  }, [puzzleType]);
+  
+
   const resetGame = () => {
     startGame();
     clearInterval(timerRef.current);
@@ -654,8 +659,6 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   const createPuzzlePieces = async (imageUrl, puzzleType = 'classic') => {
     if (!sceneRef.current) return;
   
-    console.log('Creating puzzle pieces with image:', imageUrl); // Add debug logging
-  
     // Clear existing pieces
     puzzlePiecesRef.current.forEach(piece => {
       if (piece.geometry) piece.geometry.dispose();
@@ -665,55 +668,62 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
     puzzlePiecesRef.current = [];
   
     try {
-      // Add error handling for image loading
-      const texture = await new Promise((resolve, reject) => {
-        const loader = new THREE.TextureLoader();
-        loader.crossOrigin = 'anonymous'; // Add cross-origin handling
-        
-        loader.load(
-          imageUrl,
-          (texture) => {
-            console.log('Texture loaded successfully');
-            resolve(texture);
-          },
-          undefined,
-          (error) => {
-            console.error('Error loading texture:', error);
-            reject(error);
-          }
-        );
-      });
-  
-      // Check if texture loaded correctly
-      if (!texture.image || !texture.image.width || !texture.image.height) {
-        throw new Error('Invalid texture dimensions');
-      }
-  
+      const texture = await new THREE.TextureLoader().loadAsync(imageUrl);
       const aspectRatio = texture.image.width / texture.image.height;
-      console.log('Image aspect ratio:', aspectRatio);
-  
       const settings = DIFFICULTY_SETTINGS[difficulty];
-      
+  
       // Adjust base size based on difficulty and aspect ratio
       let baseSize = 4;
-      if (aspectRatio > 1) {
-        baseSize = 4 / aspectRatio;
+      let gridX = settings.grid.x;
+      let gridY = settings.grid.y;
+  
+      // Adjust grid and piece size based on puzzle type
+      switch (puzzleType) {
+        case 'vertical':
+          // Vertical (2:3) - taller than wide
+          baseSize = 4 / (2 / 3); // Adjust base size for vertical aspect ratio
+          gridX = Math.round(gridX * (2 / 3)); // Adjust grid columns for vertical format
+          break;
+        case 'panoramic':
+          // Panoramic (16:9) - wider than tall
+          baseSize = 4 / (16 / 9); // Adjust base size for panoramic aspect ratio
+          gridY = Math.round(gridY * (9 / 16)); // Adjust grid rows for panoramic format
+          break;
+        case 'square':
+          // Square (1:1) - equal width and height
+          baseSize = 4; // No adjustment needed for square
+          gridX = gridY; // Make grid square
+          break;
+        case 'portrait':
+          // Portrait (3:5) - taller than wide
+          baseSize = 4 / (3 / 5); // Adjust base size for portrait aspect ratio
+          gridX = Math.round(gridX * (3 / 5)); // Adjust grid columns for portrait format
+          break;
+        case 'landscape':
+          // Landscape (21:9) - very wide
+          baseSize = 4 / (21 / 9); // Adjust base size for landscape aspect ratio
+          gridY = Math.round(gridY * (9 / 21)); // Adjust grid rows for landscape format
+          break;
+        default:
+          // Classic (4:3) - default
+          baseSize = 4 / (4 / 3); // Adjust base size for classic aspect ratio
+          break;
       }
   
       const pieceSize = {
-        x: (baseSize * aspectRatio) / settings.grid.x,
-        y: baseSize / settings.grid.y
+        x: (baseSize * aspectRatio) / gridX,
+        y: baseSize / gridY
       };
   
       // Create containers with adjusted sizes
-      const containerWidth = Math.max(pieceSize.x * settings.grid.x * 0.6, 2);
+      const containerWidth = Math.max(pieceSize.x * gridX * 0.6, 2);
       CONTAINER_LAYOUT.left.dimensions.width = containerWidth;
       CONTAINER_LAYOUT.right.dimensions.width = containerWidth;
       CONTAINER_LAYOUT.left.position.x = -(containerWidth + 1);
       CONTAINER_LAYOUT.right.position.x = containerWidth + 1;
   
       // Create containers first (only for 2D puzzles)
-      if (puzzleType === 'classic') {
+      if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
         Object.entries(CONTAINER_LAYOUT).forEach(([side, layout]) => {
           const containerGeometry = new THREE.PlaneGeometry(
             layout.dimensions.width,
@@ -734,8 +744,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       }
   
       const pieces = [];
-      for (let y = 0; y < settings.grid.y; y++) {
-        for (let x = 0; x < settings.grid.x; x++) {
+      for (let y = 0; y < gridY; y++) {
+        for (let x = 0; x < gridX; x++) {
           let geometry;
           switch (puzzleType) {
             case 'cube':
@@ -766,8 +776,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
             uniforms: {
               map: { value: texture },
               heightMap: { value: texture },
-              uvOffset: { value: new THREE.Vector2(x / settings.grid.x, y / settings.grid.y) },
-              uvScale: { value: new THREE.Vector2(1 / settings.grid.x, 1 / settings.grid.y) },
+              uvOffset: { value: new THREE.Vector2(x / gridX, y / gridY) },
+              uvScale: { value: new THREE.Vector2(1 / gridX, 1 / gridY) },
               depth: { value: 0.2 },
               selected: { value: 0.0 },
               correctPosition: { value: 0.0 },
@@ -782,8 +792,8 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
   
           // Store original position for snapping
           piece.userData.originalPosition = new THREE.Vector3(
-            (x - (settings.grid.x - 1) / 2) * pieceSize.x,
-            (y - (settings.grid.y - 1) / 2) * pieceSize.y,
+            (x - (gridX - 1) / 2) * pieceSize.x,
+            (y - (gridY - 1) / 2) * pieceSize.y,
             0
           );
           piece.userData.gridPosition = { x, y };
@@ -795,7 +805,7 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
       }
   
       // Distribute pieces between containers (only for 2D puzzles)
-      if (puzzleType === 'classic') {
+      if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
         const shuffledPieces = pieces.sort(() => Math.random() - 0.5);
         const halfLength = Math.ceil(shuffledPieces.length / 2);
         const leftPieces = shuffledPieces.slice(0, halfLength);
@@ -828,14 +838,14 @@ const MultiplayerManager = ({ gameId, isHost, user, image }) => {
         });
       });
   
-      setTotalPieces(settings.grid.x * settings.grid.y);
-      if (puzzleType === 'classic') {
-        createPlacementGuides(settings.grid, pieceSize);
+      setTotalPieces(gridX * gridY);
+      if (puzzleType === 'classic' || puzzleType === 'vertical' || puzzleType === 'panoramic' || puzzleType === 'square' || puzzleType === 'portrait' || puzzleType === 'landscape') {
+        createPlacementGuides({ x: gridX, y: gridY }, pieceSize);
       }
       setLoading(false);
     } catch (error) {
       console.error('Error creating puzzle pieces:', error);
-      toast.error('Failed to load puzzle image. Please try again.');
+      toast.error('Failed to create puzzle pieces');
       setLoading(false);
     }
   };
