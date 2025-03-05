@@ -388,6 +388,7 @@ const CollaborativePuzzle = () => {
           isHost={isHost}
           user={userData}
           image={image}
+          puzzleType = {puzzleType}
         />
       </ErrorBoundary>
     );
