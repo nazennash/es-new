@@ -1,11 +1,11 @@
 import { getFirestore, collection, addDoc, updateDoc, doc, increment, getDoc, setDoc } from 'firebase/firestore';
 import { getDatabase, ref, get, update } from 'firebase/database';
 
-export const handlePuzzleCompletion = async ({ 
-  puzzleId, 
-  userId, 
-  playerName, 
-  startTime, 
+export const handlePuzzleCompletion = async ({
+  puzzleId,
+  userId,
+  playerName,
+  startTime,
   difficulty,
   imageUrl,
   timer
@@ -21,7 +21,7 @@ export const handlePuzzleCompletion = async ({
 
   const db = getFirestore();
   const rtdb = getDatabase();
-  
+
   try {
     const completionTime = timer;
     const timestamp = new Date();
@@ -39,9 +39,9 @@ export const handlePuzzleCompletion = async ({
       timePerPiece: completionTime / (difficulty * difficulty),
       difficultyMultiplier: Math.pow(difficulty, 1.5)
     };
-    console.log('Preparing to save score data:', scoreData);
+    // console.log('Preparing to save score data:', scoreData);
     const scoreDoc = await addDoc(collection(db, 'puzzle_scores'), scoreData);
-    console.log('Score saved with ID:', scoreDoc.id);
+    // console.log('Score saved with ID:', scoreDoc.id);
 
     // Log puzzle data before saving
     const puzzleData = {
@@ -53,9 +53,9 @@ export const handlePuzzleCompletion = async ({
       thumbnail: imageUrl,
       name: `${difficulty}x${difficulty} Puzzle`
     };
-    console.log('Preparing to save puzzle data:', puzzleData);
+    // console.log('Preparing to save puzzle data:', puzzleData);
     const puzzleDoc = await addDoc(collection(db, 'completed_puzzles'), puzzleData);
-    console.log('Puzzle completion saved with ID:', puzzleDoc.id);
+    // console.log('Puzzle completion saved with ID:', puzzleDoc.id);
 
     // Add additional metadata for better history tracking
     const updatedPuzzleData = {
@@ -89,10 +89,10 @@ export const handlePuzzleCompletion = async ({
         id: userId,
         lastPlayed: timestamp,
         // Track best scores per difficulty
-        [`bestTimes.${difficulty}`]: !currentStats.bestTimes?.[difficulty] || 
-          completionTime < currentStats.bestTimes[difficulty] 
-            ? completionTime 
-            : currentStats.bestTimes[difficulty]
+        [`bestTimes.${difficulty}`]: !currentStats.bestTimes?.[difficulty] ||
+          completionTime < currentStats.bestTimes[difficulty]
+          ? completionTime
+          : currentStats.bestTimes[difficulty]
       };
 
       // Update achievements
@@ -105,8 +105,8 @@ export const handlePuzzleCompletion = async ({
 
       await updateDoc(userStatDoc, updates);
     } else {
-      console.log('User stats document does not exist for user:', userId);
-      console.log('Creating new user stats document');
+      // console.log('User stats document does not exist for user:', userId);
+      // console.log('Creating new user stats document');
       await setDoc(userStatDoc, {
         completed: 1,
         bestTime: completionTime,
@@ -123,20 +123,20 @@ export const handlePuzzleCompletion = async ({
         completedBy: userId,
         completedAt: timestamp.toISOString()
       };
-      console.log('Preparing realtime database updates:', updates);
+      // console.log('Preparing realtime database updates:', updates);
       await update(gameRef, updates);
-      console.log('Realtime database updated successfully');
+      // console.log('Realtime database updated successfully');
     }
 
-    console.log('Puzzle completion handler finished successfully');
-    return { 
-      success: true, 
-      completionTime, 
+    // console.log('Puzzle completion handler finished successfully');
+    return {
+      success: true,
+      completionTime,
       scoreId: scoreDoc.id,
       puzzleDocId: puzzleDoc.id
     };
   } catch (error) {
-    console.error('Error in puzzle completion handler:', error);
+    // console.error('Error in puzzle completion handler:', error);
     throw error;
   }
 };

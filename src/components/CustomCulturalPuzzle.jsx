@@ -21,6 +21,50 @@ import UpgradeModal from './UpgradeModal';
 import useUserSubscription from '../hooks/useUserSubscription';
 import toast from 'react-hot-toast';
 
+// Facebook SDK Configuration
+const FB_APP_ID = '1916143745823205';
+
+const initializeFacebookSDK = () => {
+  return new Promise((resolve, reject) => {
+    // Check if SDK is already loaded
+    if (window.FB) {
+      resolve(window.FB);
+      return;
+    }
+
+    // Create fb-root if it doesn't exist
+    if (!document.getElementById('fb-root')) {
+      const fbRoot = document.createElement('div');
+      fbRoot.id = 'fb-root';
+      document.body.appendChild(fbRoot);
+    }
+
+    // Initialize the SDK when it loads
+    window.fbAsyncInit = function () {
+      window.FB.init({
+        appId: FB_APP_ID,
+        xfbml: true,
+        version: 'v18.0',
+        autoLogAppEvents: true
+      });
+      resolve(window.FB);
+    };
+
+    // Load the SDK
+    try {
+      const script = document.createElement('script');
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
+      script.src = `https://connect.facebook.net/en_US/sdk.js`;
+      script.onerror = () => reject(new Error('Failed to load Facebook SDK'));
+      document.head.appendChild(script);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
   easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
@@ -435,6 +479,11 @@ const PuzzleGame = () => {
   //     setIsTimerRunning(true);
   //   }
   // };
+
+  // Initialize Facebook SDK
+  useEffect(() => {
+    initializeFacebookSDK();
+  }, []);
 
   // Camera controls
   const handleZoomIn = () => {
@@ -1017,42 +1066,65 @@ const PuzzleGame = () => {
   };
 
   // Replace the existing Facebook sharing code with this:
+  const shareToFacebook = async () => {
+    try {
+      const shareUrl = encodeURIComponent(window.location.href);
+      const shareText = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
+      const title = encodeURIComponent('Custom Cultural Puzzle');
 
-  const FB_APP_ID = '510100578334655';
-
-  // Initialize Facebook SDK
-  useEffect(() => {
-    window.fbAsyncInit = function () {
-      window.FB.init({
-        appId: FB_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
-    };
-  }, []);
-
-  const shareToFacebook = () => {
-    const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-
-    if (window.FB) {
-      window.FB.ui({
-        method: 'share',
-        href: window.location.href,
-        quote: `I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`,
-      }, function (response) {
-        if (response && !response.error_message) {
-          console.log('Shared successfully');
-        } else {
-          console.error('Error while sharing', response?.error_message);
-        }
-      });
-    } else {
-      // Fallback if FB SDK is not loaded
+      // Try to use the Feed Dialog first
+      if (window.FB) {
+        window.FB.ui({
+          method: 'feed',
+          name: title,
+          link: window.location.href,
+          description: shareText,
+          display: 'popup',
+        }, function (response) {
+          if (response && !response.error_message) {
+            toast.success('Shared successfully to Facebook!');
+          } else {
+            // If Feed Dialog fails, try the Share Dialog
+            window.FB.ui({
+              method: 'share_open_graph',
+              action_type: 'og.shares',
+              action_properties: JSON.stringify({
+                object: {
+                  'og:url': window.location.href,
+                  'og:title': title,
+                  'og:description': shareText,
+                }
+              })
+            }, function (shareResponse) {
+              if (shareResponse && !shareResponse.error_message) {
+                toast.success('Shared successfully to Facebook!');
+              } else {
+                // If both dialogs fail, use the fallback URL
+                window.open(
+                  `https://www.facebook.com/sharer.php?u=${shareUrl}&quote=${shareText}`,
+                  'facebook-share-dialog',
+                  'width=626,height=436'
+                );
+              }
+            });
+          }
+        });
+      } else {
+        // Fallback if FB SDK is not available
+        window.open(
+          `https://www.facebook.com/sharer.php?u=${shareUrl}&quote=${shareText}`,
+          'facebook-share-dialog',
+          'width=626,height=436'
+        );
+      }
+    } catch (error) {
+      console.error('Facebook sharing error:', error);
+      // Final fallback
+      const url = encodeURIComponent(window.location.href);
+      const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
       window.open(
-        `https://www.facebook.com/dialog/share?app_id=${FB_APP_ID}&display=popup&href=${url}&quote=${text}`,
-        '_blank',
+        `https://www.facebook.com/sharer.php?u=${url}&quote=${text}`,
+        'facebook-share-dialog',
         'width=626,height=436'
       );
     }
@@ -1198,7 +1270,7 @@ const PuzzleGame = () => {
 
       // Log achievement data
       const achievements = checkAchievements();
-      console.log('Achievements Earned:', achievements);
+      // console.log('Achievements Earned:', achievements);
 
       // Update game state
       if (gameId) {
@@ -1231,7 +1303,7 @@ const PuzzleGame = () => {
 
       // Wait for achievements check
       const achievements = checkAchievements();
-      console.log('Processing achievements:', achievements);
+      // console.log('Processing achievements:', achievements);
 
       // Wait for game state update
       if (gameId) {
