@@ -493,7 +493,7 @@ const PuzzleGame = () => {
     // Create main grid container
     const gridWidth = gridSize.x * pieceSize.x;
     const gridHeight = gridSize.y * pieceSize.y;
-
+    
     // Create background plane for entire grid
     const gridBackground = new THREE.Mesh(
       new THREE.PlaneGeometry(gridWidth + 0.1, gridHeight + 0.1),
@@ -617,7 +617,7 @@ const PuzzleGame = () => {
             });
 
             const piece = new THREE.Mesh(geometry, material);
-
+            
             // Store original position for snapping
             piece.userData.originalPosition = new THREE.Vector3(
               (x - (gridSize.x - 1) / 2) * pieceSize.x,
@@ -659,16 +659,16 @@ const PuzzleGame = () => {
   const arrangePiecesInContainer = (pieces, container, pieceSize) => {
     const cols = Math.floor(container.dimensions.width / (pieceSize.x * 1.2)); // Increased spacing
     const rows = Math.ceil(pieces.length / cols);
-
+    
     pieces.forEach((piece, index) => {
       const row = Math.floor(index / cols);
       const col = index % cols;
-
+      
       // Calculate position with more spacing
-      piece.position.x = container.position.x - container.dimensions.width / 2 +
-        (col + 0.5) * (container.dimensions.width / cols);
-      piece.position.y = container.position.y + container.dimensions.height / 2 -
-        (row + 0.5) * (container.dimensions.height / rows);
+      piece.position.x = container.position.x - container.dimensions.width/2 + 
+                        (col + 0.5) * (container.dimensions.width / cols);
+      piece.position.y = container.position.y + container.dimensions.height/2 - 
+                        (row + 0.5) * (container.dimensions.height / rows);
       piece.position.z = 0.01; // Slightly raised to avoid z-fighting
     });
   };
@@ -1016,86 +1016,11 @@ const PuzzleGame = () => {
     document.body.removeChild(link);
   };
 
-  // Replace the existing Facebook sharing code with this:
-
-  const FB_APP_ID = '510100578334655';
-
-  // Initialize Facebook SDK
-  useEffect(() => {
-    window.fbAsyncInit = function () {
-      window.FB.init({
-        appId: FB_APP_ID,
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: 'v18.0'
-      });
-    };
-  }, []);
-
   const shareToFacebook = () => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-
-    if (window.FB) {
-      window.FB.ui({
-        method: 'share',
-        href: window.location.href,
-        quote: `I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`,
-      }, function (response) {
-        if (response && !response.error_message) {
-          console.log('Shared successfully');
-        } else {
-          console.error('Error while sharing', response?.error_message);
-        }
-      });
-    } else {
-      // Fallback if FB SDK is not loaded
-      window.open(
-        `https://www.facebook.com/dialog/share?app_id=${FB_APP_ID}&display=popup&href=${url}&quote=${text}`,
-        '_blank',
-        'width=626,height=436'
-      );
-    }
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
   };
-
-
-  // First load the SDK properly
-  // window.fbAsyncInit = function () {
-  //   FB.init({
-  //     appId: '510100578334655|jCTkbe0FZDBuZ3V-RYj0H4s6JlU',
-  //     autoLogAppEvents: true,
-  //     xfbml: true,
-  //     version: 'v18.0'
-  //   });
-  // };
-
-  // Then your share function
-  // const shareToFacebook = () => {
-  //   FB.ui({
-  //     method: 'share',
-  //     href: window.location.href,
-  //     quote: `I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`,
-  //   }, function (response) { });
-  // };
-
-  // const shareToFacebook = () => {
-  //   // Replace 'YOUR_FACEBOOK_APP_ID' with your actual Facebook App ID
-  //   const FB_APP_ID = '510100578334655|jCTkbe0FZDBuZ3V-RYj0H4s6JlU';
-  //   const url = encodeURIComponent(window.location.href);
-  //   const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-
-  //   window.open(
-  //     `https://www.facebook.com/dialog/share?app_id=${FB_APP_ID}&display=popup&href=${url}&quote=${text}`,
-  //     '_blank',
-  //     'width=626,height=436'
-  //   );
-  // };
-
-  // const shareToFacebook = () => {
-  //   const url = encodeURIComponent(window.location.href);
-  //   const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-  //   window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
-  // };
 
   const shareToTwitter = () => {
     const url = encodeURIComponent(window.location.href);
@@ -1428,7 +1353,7 @@ const PuzzleGame = () => {
 
   const replayPuzzle = () => {
     if (!image) return;
-
+    
     // Reset game state
     setLoading(true);
     setGameState('playing');
@@ -1459,11 +1384,11 @@ const PuzzleGame = () => {
       id: 'difficulty-change',
       duration: 1000,
     });
-
+    
     // Update state first
     setSelectedDifficulty(newDifficulty);
     setDifficulty(newDifficulty.id);
-
+    
     // Only recreate puzzle if there's an image
     if (image) {
       setLoading(true);
@@ -1476,7 +1401,7 @@ const PuzzleGame = () => {
         setCompletedPieces(0);
         setProgress(0);
         setTimeElapsed(0);
-
+        
         // Show success toast
         toast.success(`Difficulty changed to ${newDifficulty.label}`, {
           id: 'difficulty-change',
@@ -1523,8 +1448,8 @@ const PuzzleGame = () => {
                   onClick={togglePause}
                   className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all transform hover:scale-105"
                 >
-                  {gameState === 'playing' ?
-                    <Pause className="w-6 h-6" /> :
+                  {gameState === 'playing' ? 
+                    <Pause className="w-6 h-6" /> : 
                     <Play className="w-6 h-6" />
                   }
                 </button>
@@ -1650,8 +1575,9 @@ const PuzzleGame = () => {
 const ControlButton = ({ icon, onClick, tooltip, active = false }) => (
   <button
     onClick={onClick}
-    className={`p-2 rounded transition-all transform hover:scale-110 ${active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-      }`}
+    className={`p-2 rounded transition-all transform hover:scale-110 ${
+      active ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+    }`}
     title={tooltip}
   >
     {icon}
