@@ -21,50 +21,6 @@ import UpgradeModal from './UpgradeModal';
 import useUserSubscription from '../hooks/useUserSubscription';
 import toast from 'react-hot-toast';
 
-// Facebook SDK Configuration
-const FB_APP_ID = '1916143745823205';
-
-const initializeFacebookSDK = () => {
-  return new Promise((resolve, reject) => {
-    // Check if SDK is already loaded
-    if (window.FB) {
-      resolve(window.FB);
-      return;
-    }
-
-    // Create fb-root if it doesn't exist
-    if (!document.getElementById('fb-root')) {
-      const fbRoot = document.createElement('div');
-      fbRoot.id = 'fb-root';
-      document.body.appendChild(fbRoot);
-    }
-
-    // Initialize the SDK when it loads
-    window.fbAsyncInit = function () {
-      window.FB.init({
-        appId: FB_APP_ID,
-        xfbml: true,
-        version: 'v18.0',
-        autoLogAppEvents: true
-      });
-      resolve(window.FB);
-    };
-
-    // Load the SDK
-    try {
-      const script = document.createElement('script');
-      script.async = true;
-      script.defer = true;
-      script.crossOrigin = 'anonymous';
-      script.src = `https://connect.facebook.net/en_US/sdk.js`;
-      script.onerror = () => reject(new Error('Failed to load Facebook SDK'));
-      document.head.appendChild(script);
-    } catch (error) {
-      reject(error);
-    }
-  });
-};
-
 // 2. Constants
 const DIFFICULTY_SETTINGS = {
   easy: { grid: { x: 4, y: 3 }, snapDistance: 0.4, rotationEnabled: false },
@@ -479,11 +435,6 @@ const PuzzleGame = () => {
   //     setIsTimerRunning(true);
   //   }
   // };
-
-  // Initialize Facebook SDK
-  useEffect(() => {
-    initializeFacebookSDK();
-  }, []);
 
   // Camera controls
   const handleZoomIn = () => {
@@ -1065,652 +1016,559 @@ const PuzzleGame = () => {
     document.body.removeChild(link);
   };
 
-  // Replace the existing Facebook sharing code with this:  const shareToFacebook = async () => {
-  try {
-    const shareUrl = encodeURIComponent(window.location.href);
-    const shareText = `I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`;
-    const encodedShareText = encodeURIComponent(shareText);
-
-    // Try the Share Dialog first as it's more reliable for text + link sharing
-    if (window.FB) {
-      window.FB.ui({
-        method: 'share',
-        href: window.location.href,
-        quote: shareText,
-        hashtag: '#CustomPuzzle'
-      }, function (response) {
-        if (response && !response.error_message) {
-          toast.success('Shared successfully to Facebook!');
-        } else {
-          // If Share Dialog fails, try the Feed Dialog
-          window.FB.ui({
-            method: 'feed',
-            link: window.location.href,
-            quote: shareText,
-            caption: 'Custom Cultural Puzzle',
-            description: shareText,
-            display: 'popup'
-          }, function (feedResponse) {
-            if (feedResponse && !feedResponse.error_message) {
-              toast.success('Shared successfully to Facebook!');
-            } else {
-              // If both fail, use the fallback URL with encoded parameters
-              window.open(
-                `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${encodedShareText}`,
-                'facebook-share-dialog',
-                'width=626,height=436'
-              );
-            }
-          });
-        }
-      });
-    } else {
-      // Fallback if FB SDK is not available
-      window.open(
-        `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${encodedShareText}`,
-        'facebook-share-dialog',
-        'width=626,height=436'
-      );
-    }
-  } catch (error) {
-    console.error('Facebook sharing error:', error);
-    // Final fallback
+  const shareToFacebook = () => {
     const url = encodeURIComponent(window.location.href);
     const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-    window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`,
-      'facebook-share-dialog',
-      'width=626,height=436'
-    );
-  }
-};
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
+  };
 
+  const shareToTwitter = () => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! #PuzzleGame`);
+    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
+  };
 
-// First load the SDK properly
-// window.fbAsyncInit = function () {
-//   FB.init({
-//     appId: '510100578334655|jCTkbe0FZDBuZ3V-RYj0H4s6JlU',
-//     autoLogAppEvents: true,
-//     xfbml: true,
-//     version: 'v18.0'
-//   });
-// };
+  const shareToWhatsApp = () => {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Create yours: `);
+    window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
+  };
 
-// Then your share function
-// const shareToFacebook = () => {
-//   FB.ui({
-//     method: 'share',
-//     href: window.location.href,
-//     quote: `I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`,
-//   }, function (response) { });
-// };
-
-// const shareToFacebook = () => {
-//   // Replace 'YOUR_FACEBOOK_APP_ID' with your actual Facebook App ID
-//   const FB_APP_ID = '510100578334655|jCTkbe0FZDBuZ3V-RYj0H4s6JlU';
-//   const url = encodeURIComponent(window.location.href);
-//   const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-
-//   window.open(
-//     `https://www.facebook.com/dialog/share?app_id=${FB_APP_ID}&display=popup&href=${url}&quote=${text}`,
-//     '_blank',
-//     'width=626,height=436'
-//   );
-// };
-
-// const shareToFacebook = () => {
-//   const url = encodeURIComponent(window.location.href);
-//   const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Try creating your own!`);
-//   window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
-// };
-
-const shareToTwitter = () => {
-  const url = encodeURIComponent(window.location.href);
-  const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! #PuzzleGame`);
-  window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank');
-};
-
-const shareToWhatsApp = () => {
-  const url = encodeURIComponent(window.location.href);
-  const text = encodeURIComponent(`I have just completed a custom puzzle in ${formatTime(timeElapsed)}! Create yours: `);
-  window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
-};
-
-const ShareModal = () => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-      <h3 className="text-xl font-bold mb-4">Share Your Achievement</h3>
-      <div className="space-y-4">
+  const ShareModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+        <h3 className="text-xl font-bold mb-4">Share Your Achievement</h3>
+        <div className="space-y-4">
+          <button
+            onClick={shareToFacebook}
+            className="w-full p-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Share on Facebook
+          </button>
+          <button
+            onClick={shareToTwitter}
+            className="w-full p-3 bg-sky-400 text-white rounded hover:bg-sky-500"
+          >
+            Share on Twitter
+          </button>
+          <button
+            onClick={shareToWhatsApp}
+            className="w-full p-3 bg-green-500 text-white rounded hover:bg-green-600"
+          >
+            Share on WhatsApp
+          </button>
+          <button
+            onClick={downloadPuzzleImage}
+            className="w-full p-3 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 flex items-center justify-center gap-2"
+          >
+            <Download className="h-4 w-4" /> Download Image
+          </button>
+        </div>
         <button
-          onClick={shareToFacebook}
-          className="w-full p-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={() => setShowShareModal(false)}
+          className="mt-4 w-full p-2 border border-gray-300 rounded hover:bg-gray-50"
         >
-          Share on Facebook
-        </button>
-        <button
-          onClick={shareToTwitter}
-          className="w-full p-3 bg-sky-400 text-white rounded hover:bg-sky-500"
-        >
-          Share on Twitter
-        </button>
-        <button
-          onClick={shareToWhatsApp}
-          className="w-full p-3 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          Share on WhatsApp
-        </button>
-        <button
-          onClick={downloadPuzzleImage}
-          className="w-full p-3 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 flex items-center justify-center gap-2"
-        >
-          <Download className="h-4 w-4" /> Download Image
+          Close
         </button>
       </div>
-      <button
-        onClick={() => setShowShareModal(false)}
-        className="mt-4 w-full p-2 border border-gray-300 rounded hover:bg-gray-50"
-      >
-        Close
-      </button>
     </div>
-  </div>
-);
-
-// Add this function inside the component
-// const handlePuzzleCompletionCultural = async (puzzleData) => {
-//   if (!auth.currentUser) return;
-
-//   try {
-//     const db = getFirestore();
-//     await addDoc(collection(db, 'completed_puzzles'), {
-//       ...puzzleData,
-//       completedAt: serverTimestamp()
-//     });
-//   } catch (error) {
-//     console.error('Error saving puzzle completion:', error);
-//   }
-// };
-
-// Modify the completion effect
-useEffect(() => {
-  if (progress === 100 && auth?.currentUser) {
-    // const completionData = {
-    //   puzzleId: `custom_${Date.now()}`,
-    //   userId: auth.currentUser.uid,
-    //   playerName: auth.currentUser.displayName || 'Anonymous',
-    //   startTime,
-    //   difficulty,
-    //   imageUrl: image,
-    //   timer: timeElapsed,
-    //   completedAt: new Date(),
-    //   totalPieces,
-    //   completedPieces
-    // };
-
-    // console.log('Puzzle Completion Data:', completionData);
-    // handlePuzzleCompletionCultural(completionData);
-
-    const completionData = {
-      puzzleId: `custom_${Date.now()}`,
-      userId: auth.currentUser.uid,
-      playerName: auth.currentUser.email || 'Anonymous',
-      startTime: startTime,
-      difficulty,
-      imageUrl: image,
-      timer: timeElapsed,
-    };
-
-    console.log('Data sent to handlePuzzleCompletion:', completionData);
-    handlePuzzleCompletion(completionData);
-
-    // Log achievement data
-    const achievements = checkAchievements();
-    // console.log('Achievements Earned:', achievements);
-
-    // Update game state
-    if (gameId) {
-      const gameUpdateData = {
-        state: 'completed',
-        completionTime: timeElapsed,
-        achievements: achievements.map(a => a.id)
-      };
-      console.log('Game State Update:', gameUpdateData);
-      updateGameState(gameUpdateData);
-    }
-  }
-}, [progress, startTime, difficulty, image, timeElapsed, totalPieces, completedPieces]);
-
-// Add synchronous completion handler
-const synchronousCompletion = async () => {
-  try {
-    console.log('Starting synchronous completion process...');
-
-    // Wait for puzzle completion
-    await handlePuzzleCompletionCultural({
-      puzzleId: `custom_${Date.now()}`,
-      userId: auth?.currentUser?.uid,
-      playerName: auth?.currentUser?.displayName || 'Anonymous',
-      startTime,
-      difficulty,
-      imageUrl: image,
-      timer: timeElapsed
-    });
-
-    // Wait for achievements check
-    const achievements = checkAchievements();
-    // console.log('Processing achievements:', achievements);
-
-    // Wait for game state update
-    if (gameId) {
-      await updateGameState({
-        state: 'completed',
-        completionTime: timeElapsed,
-        achievements: achievements.map(a => a.id)
-      });
-    }
-
-    console.log('Completion process finished successfully');
-    setShowShareModal(true);
-  } catch (error) {
-    console.error('Error in completion process:', error);
-  }
-};
-
-// Add sound initialization
-useEffect(() => {
-  const soundSystem = new SoundSystem();
-  soundRef.current = soundSystem;
-
-  // Cleanup
-  return () => {
-    if (soundRef.current?.context) {
-      soundRef.current.context.close();
-    }
-  };
-}, []);
-
-// Add sound initialization on first interaction
-const initializeAudio = async () => {
-  if (soundRef.current && !soundRef.current.initialized) {
-    await soundRef.current.initializeContext();
-  }
-};
-
-// Add mouse interaction handling
-const setupMouseInteraction = () => {
-  if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
-
-  const handlePieceInteraction = async (event, piece) => {
-    if (!piece || piece.userData.isPlaced) return;
-
-    // Ensure audio is initialized on first interaction
-    await initializeAudio();
-
-    // Update piece visual feedback
-    if (piece.material.uniforms) {
-      piece.material.uniforms.selected.value = 1.0;
-    }
-
-    // Play sound effect
-    soundRef.current?.play('pickup');
-  };
-
-  // ... rest of mouse handling code ...
-};
-
-// Add achievement handling
-const checkAchievements = () => {
-  const achievements = [];
-
-  // Speed Demon achievement
-  if (timeElapsed < 120) {
-    achievements.push(ACHIEVEMENTS.find(a => a.id === 'speed_demon'));
-  }
-
-  // Perfectionist achievement
-  if (!puzzlePiecesRef.current.some(p => p.userData.misplaced)) {
-    achievements.push(ACHIEVEMENTS.find(a => a.id === 'perfectionist'));
-  }
-
-  // Persistent achievement
-  if (difficulty === 'expert') {
-    achievements.push(ACHIEVEMENTS.find(a => a.id === 'persistent'));
-  }
-
-  return achievements;
-};
-
-// Modify puzzle completion handler
-const handlePuzzleCompletionCultural = async () => {
-  if (!auth.currentUser) return;
-
-  const achievements = checkAchievements();
-  const db = getFirestore();
-
-  try {
-    await addDoc(collection(db, 'completed_puzzles'), {
-      userId: auth.currentUser.uid,
-      puzzleId: gameId,
-      timeElapsed,
-      difficulty,
-      completedAt: serverTimestamp(),
-      achievements: achievements.map(a => a.id)
-    });
-
-    // Play completion sound
-    soundRef.current?.play('complete');
-
-    // Show achievements
-    setCompletedAchievements(achievements);
-    // Check if the user is on a free plan
-    if (!isPremium) {
-      // Get the current month's puzzles
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const q = query(
-        collection(db, 'completed_puzzles'),
-        where('userId', '==', auth.currentUser.uid),
-        where('completedAt', '>=', startOfMonth)
-      );
-
-      const querySnapshot = await getDocs(q);
-      const puzzleCount = querySnapshot.size;
-
-      if (puzzleCount === 1) {
-        // Soft limit: User has completed 1 puzzle, show a toast
-        toast.success("You've completed 1 puzzle this month. You have 1 more puzzle left!");
-      } else if (puzzleCount >= 2) {
-        // Hard limit: User has completed 2 puzzles, show upgrade modal
-        toast.error("You've reached your monthly limit for creating custom puzzles. Upgrade to Premium to create more!");
-        setIsModalOpen(true); // Show the upgrade modal
-      }
-    }
-
-  } catch (error) {
-    console.error('Error saving completion:', error);
-  }
-};
-
-// Add game state management
-const initializeGameState = async () => {
-  if (!auth.currentUser) return;
-
-  const db = getDatabase();
-  const gameRef = ref(db, `games/${gameId}`);
-
-  try {
-    await update(gameRef, {
-      createdAt: serverTimestamp(),
-      userId: auth.currentUser.uid,
-      difficulty,
-      state: 'initial'
-    });
-  } catch (error) {
-    console.error('Error initializing game:', error);
-  }
-};
-
-const handlePieceComplete = async (piece) => {
-  if (!piece) return;
-
-  // Ensure audio is initialized
-  await initializeAudio();
-
-  // Play sound effect
-  soundRef.current?.play('place');
-
-  // Visual effects
-  particleSystemRef.current?.emit(piece.position, 30);
-
-  // Add ripple effect
-  const ripple = new THREE.Mesh(
-    new THREE.CircleGeometry(0.1, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x4a90e2,
-      transparent: true,
-      opacity: 0.5
-    })
   );
 
-  ripple.position.copy(piece.position);
-  ripple.position.z = 0.01;
-  sceneRef.current.add(ripple);
+  // Add this function inside the component
+  // const handlePuzzleCompletionCultural = async (puzzleData) => {
+  //   if (!auth.currentUser) return;
 
-  // Animate ripple
-  const animate = () => {
-    const scale = ripple.scale.x + 0.05;
-    ripple.scale.set(scale, scale, 1);
-    ripple.material.opacity -= 0.02;
+  //   try {
+  //     const db = getFirestore();
+  //     await addDoc(collection(db, 'completed_puzzles'), {
+  //       ...puzzleData,
+  //       completedAt: serverTimestamp()
+  //     });
+  //   } catch (error) {
+  //     console.error('Error saving puzzle completion:', error);
+  //   }
+  // };
 
-    if (ripple.material.opacity > 0) {
-      requestAnimationFrame(animate);
-    } else {
-      sceneRef.current.remove(ripple);
+  // Modify the completion effect
+  useEffect(() => {
+    if (progress === 100 && auth?.currentUser) {
+      // const completionData = {
+      //   puzzleId: `custom_${Date.now()}`,
+      //   userId: auth.currentUser.uid,
+      //   playerName: auth.currentUser.displayName || 'Anonymous',
+      //   startTime,
+      //   difficulty,
+      //   imageUrl: image,
+      //   timer: timeElapsed,
+      //   completedAt: new Date(),
+      //   totalPieces,
+      //   completedPieces
+      // };
+
+      // console.log('Puzzle Completion Data:', completionData);
+      // handlePuzzleCompletionCultural(completionData);
+
+      const completionData = {
+        puzzleId: `custom_${Date.now()}`,
+        userId: auth.currentUser.uid,
+        playerName: auth.currentUser.email || 'Anonymous',
+        startTime: startTime,
+        difficulty,
+        imageUrl: image,
+        timer: timeElapsed,
+      };
+
+      console.log('Data sent to handlePuzzleCompletion:', completionData);
+      handlePuzzleCompletion(completionData);
+
+      // Log achievement data
+      const achievements = checkAchievements();
+      console.log('Achievements Earned:', achievements);
+
+      // Update game state
+      if (gameId) {
+        const gameUpdateData = {
+          state: 'completed',
+          completionTime: timeElapsed,
+          achievements: achievements.map(a => a.id)
+        };
+        console.log('Game State Update:', gameUpdateData);
+        updateGameState(gameUpdateData);
+      }
+    }
+  }, [progress, startTime, difficulty, image, timeElapsed, totalPieces, completedPieces]);
+
+  // Add synchronous completion handler
+  const synchronousCompletion = async () => {
+    try {
+      console.log('Starting synchronous completion process...');
+
+      // Wait for puzzle completion
+      await handlePuzzleCompletionCultural({
+        puzzleId: `custom_${Date.now()}`,
+        userId: auth?.currentUser?.uid,
+        playerName: auth?.currentUser?.displayName || 'Anonymous',
+        startTime,
+        difficulty,
+        imageUrl: image,
+        timer: timeElapsed
+      });
+
+      // Wait for achievements check
+      const achievements = checkAchievements();
+      console.log('Processing achievements:', achievements);
+
+      // Wait for game state update
+      if (gameId) {
+        await updateGameState({
+          state: 'completed',
+          completionTime: timeElapsed,
+          achievements: achievements.map(a => a.id)
+        });
+      }
+
+      console.log('Completion process finished successfully');
+      setShowShareModal(true);
+    } catch (error) {
+      console.error('Error in completion process:', error);
     }
   };
 
-  animate();
-};
+  // Add sound initialization
+  useEffect(() => {
+    const soundSystem = new SoundSystem();
+    soundRef.current = soundSystem;
 
-const replayPuzzle = () => {
-  if (!image) return;
+    // Cleanup
+    return () => {
+      if (soundRef.current?.context) {
+        soundRef.current.context.close();
+      }
+    };
+  }, []);
 
-  // Reset game state
-  setLoading(true);
-  setGameState('playing');
-  setIsTimerRunning(true);
-  setCompletedPieces(0);
-  setProgress(0);
-  setTimeElapsed(0);
-  if (timerRef.current) {
-    clearInterval(timerRef.current);
-  }
+  // Add sound initialization on first interaction
+  const initializeAudio = async () => {
+    if (soundRef.current && !soundRef.current.initialized) {
+      await soundRef.current.initializeContext();
+    }
+  };
 
-  // Recreate puzzle pieces with current settings
-  createPuzzlePieces(image).then(() => {
-    setLoading(false);
-  });
-};
+  // Add mouse interaction handling
+  const setupMouseInteraction = () => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
 
-const PRESET_IMAGES = [
-  { id: 'elephant', src: elephant, title: 'African Elephant', description: 'Majestic elephant in its natural habitat' },
-  { id: 'pyramid', src: pyramid, title: 'Egyptian Pyramid', description: 'Ancient pyramid of Giza' },
-  { id: 'african', src: african, title: 'African Culture', description: 'Traditional African cultural scene' }
-];
+    const handlePieceInteraction = async (event, piece) => {
+      if (!piece || piece.userData.isPlaced) return;
 
-// Add difficulty change handler
-const handleDifficultyChange = async (newDifficulty) => {
-  // Show loading toast
-  toast.loading('Changing difficulty level...', {
-    id: 'difficulty-change',
-    duration: 1000,
-  });
+      // Ensure audio is initialized on first interaction
+      await initializeAudio();
 
-  // Update state first
-  setSelectedDifficulty(newDifficulty);
-  setDifficulty(newDifficulty.id);
+      // Update piece visual feedback
+      if (piece.material.uniforms) {
+        piece.material.uniforms.selected.value = 1.0;
+      }
 
-  // Only recreate puzzle if there's an image
-  if (image) {
-    setLoading(true);
+      // Play sound effect
+      soundRef.current?.play('pickup');
+    };
+
+    // ... rest of mouse handling code ...
+  };
+
+  // Add achievement handling
+  const checkAchievements = () => {
+    const achievements = [];
+
+    // Speed Demon achievement
+    if (timeElapsed < 120) {
+      achievements.push(ACHIEVEMENTS.find(a => a.id === 'speed_demon'));
+    }
+
+    // Perfectionist achievement
+    if (!puzzlePiecesRef.current.some(p => p.userData.misplaced)) {
+      achievements.push(ACHIEVEMENTS.find(a => a.id === 'perfectionist'));
+    }
+
+    // Persistent achievement
+    if (difficulty === 'expert') {
+      achievements.push(ACHIEVEMENTS.find(a => a.id === 'persistent'));
+    }
+
+    return achievements;
+  };
+
+  // Modify puzzle completion handler
+  const handlePuzzleCompletionCultural = async () => {
+    if (!auth.currentUser) return;
+
+    const achievements = checkAchievements();
+    const db = getFirestore();
+
     try {
-      // Wait for piece creation to complete
-      await createPuzzlePieces(image);
-      // Reset game state after pieces are created
-      setGameState('playing');
-      setIsTimerRunning(true);
-      setCompletedPieces(0);
-      setProgress(0);
-      setTimeElapsed(0);
+      await addDoc(collection(db, 'completed_puzzles'), {
+        userId: auth.currentUser.uid,
+        puzzleId: gameId,
+        timeElapsed,
+        difficulty,
+        completedAt: serverTimestamp(),
+        achievements: achievements.map(a => a.id)
+      });
 
-      // Show success toast
-      toast.success(`Difficulty changed to ${newDifficulty.label}`, {
-        id: 'difficulty-change',
+      // Play completion sound
+      soundRef.current?.play('complete');
+
+      // Show achievements
+      setCompletedAchievements(achievements);
+      // Check if the user is on a free plan
+      if (!isPremium) {
+        // Get the current month's puzzles
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const q = query(
+          collection(db, 'completed_puzzles'),
+          where('userId', '==', auth.currentUser.uid),
+          where('completedAt', '>=', startOfMonth)
+        );
+
+        const querySnapshot = await getDocs(q);
+        const puzzleCount = querySnapshot.size;
+
+        if (puzzleCount === 1) {
+          // Soft limit: User has completed 1 puzzle, show a toast
+          toast.success("You've completed 1 puzzle this month. You have 1 more puzzle left!");
+        } else if (puzzleCount >= 2) {
+          // Hard limit: User has completed 2 puzzles, show upgrade modal
+          toast.error("You've reached your monthly limit for creating custom puzzles. Upgrade to Premium to create more!");
+          setIsModalOpen(true); // Show the upgrade modal
+        }
+      }
+
+    } catch (error) {
+      console.error('Error saving completion:', error);
+    }
+  };
+
+  // Add game state management
+  const initializeGameState = async () => {
+    if (!auth.currentUser) return;
+
+    const db = getDatabase();
+    const gameRef = ref(db, `games/${gameId}`);
+
+    try {
+      await update(gameRef, {
+        createdAt: serverTimestamp(),
+        userId: auth.currentUser.uid,
+        difficulty,
+        state: 'initial'
       });
     } catch (error) {
-      console.error('Error creating puzzle pieces:', error);
-      toast.error('Failed to change difficulty', {
-        id: 'difficulty-change',
-      });
-    } finally {
-      setLoading(false);
+      console.error('Error initializing game:', error);
     }
-  }
-};
+  };
 
-return (
-  <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
-    {/* Main Header */}
-    <header className="px-4 py-3 bg-gray-800/90 backdrop-blur-sm border-b border-gray-700 shadow-lg">
-      <div className="container mx-auto">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Left Section: Title and Image Selection */}
-          <div className="flex flex-wrap items-center gap-4">
-            <h1 className="text-2xl font-bold text-white">Cultural Puzzle</h1>
-            <button
-              onClick={() => setShowImageSelection(true)}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-105"
-            >
-              <Image className="w-5 h-5 mr-2" />
-              <span>Select Image</span>
-            </button>
-          </div>
+  const handlePieceComplete = async (piece) => {
+    if (!piece) return;
 
-          {/* Right Section: Timer and Controls */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
-              <Clock className="w-5 h-5 text-blue-400" />
-              <span className="text-white font-mono text-lg">
-                {formatTime(timeElapsed)}
-              </span>
-            </div>
-            {gameState !== 'initial' && (
-              <button
-                onClick={togglePause}
-                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all transform hover:scale-105"
-              >
-                {gameState === 'playing' ?
-                  <Pause className="w-6 h-6" /> :
-                  <Play className="w-6 h-6" />
-                }
-              </button>
-            )}
-          </div>
-        </div>
+    // Ensure audio is initialized
+    await initializeAudio();
 
-        {/* Progress and Difficulty Section */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-          {totalPieces > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="text-gray-300 text-sm">Progress</span>
-              <div className="flex-1 h-3 bg-gray-700/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="text-white font-medium min-w-[3rem] text-right">
-                {Math.round(progress)}%
-              </span>
-            </div>
-          )}
-          <div className="flex justify-end">
-            <DifficultyBar
-              selectedDifficulty={selectedDifficulty}
-              onSelect={handleDifficultyChange}
-            />
-          </div>
-        </div>
-      </div>
-    </header>
+    // Play sound effect
+    soundRef.current?.play('place');
 
-    {/* Main Game Area */}
-    <div className="flex-1 relative overflow-hidden">
-      {/* Puzzle Container */}
-      <div ref={containerRef} className="w-full h-full" />
+    // Visual effects
+    particleSystemRef.current?.emit(piece.position, 30);
 
-      {/* Floating Controls */}
-      <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg shadow-lg">
-        <ControlButton icon={<ZoomIn />} onClick={handleZoomIn} tooltip="Zoom In" />
-        <ControlButton icon={<ZoomOut />} onClick={handleZoomOut} tooltip="Zoom Out" />
-        <div className="w-full h-px bg-gray-700" />
-        <ControlButton icon={<Maximize2 />} onClick={handleResetView} tooltip="Reset View" />
-        <ControlButton icon={<RotateCcw />} onClick={handleResetGame} tooltip="Reset Puzzle" />
-        <ControlButton icon={<RefreshCw />} onClick={replayPuzzle} tooltip="Replay Puzzle" />
-        <ControlButton
-          icon={<Image />}
-          onClick={() => setShowThumbnail(!showThumbnail)}
-          tooltip="Toggle Reference"
-          active={showThumbnail}
-        />
-      </div>
+    // Add ripple effect
+    const ripple = new THREE.Mesh(
+      new THREE.CircleGeometry(0.1, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x4a90e2,
+        transparent: true,
+        opacity: 0.5
+      })
+    );
 
-      {/* Reference Image */}
-      <AnimatePresence>
-        {showThumbnail && image && (
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="fixed left-4 top-24 p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl"
-          >
-            <img
-              src={image}
-              alt="Reference"
-              className="w-40 md:w-48 h-auto rounded border border-gray-700"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+    ripple.position.copy(piece.position);
+    ripple.position.z = 0.01;
+    sceneRef.current.add(ripple);
 
-      {/* Loading Overlay */}
-      <AnimatePresence>
-        {loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm"
-          >
-            <div className="flex flex-col items-center gap-4 p-6 rounded-lg bg-gray-800/90">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <div className="text-xl text-white font-medium">Loading puzzle...</div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    // Animate ripple
+    const animate = () => {
+      const scale = ripple.scale.x + 0.05;
+      ripple.scale.set(scale, scale, 1);
+      ripple.material.opacity -= 0.02;
 
-    {/* Image Selection Modal */}
-    <ImageSelectionModal
-      images={PRESET_IMAGES}
-      onSelect={(img) => {
-        setImage(img.src);
-        createPuzzlePieces(img.src).then(() => {
-          setLoading(false);
-          setGameState('playing');
-          setIsTimerRunning(true);
-          setCompletedPieces(0);
-          setProgress(0);
-          setTimeElapsed(0);
+      if (ripple.material.opacity > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        sceneRef.current.remove(ripple);
+      }
+    };
+
+    animate();
+  };
+
+  const replayPuzzle = () => {
+    if (!image) return;
+
+    // Reset game state
+    setLoading(true);
+    setGameState('playing');
+    setIsTimerRunning(true);
+    setCompletedPieces(0);
+    setProgress(0);
+    setTimeElapsed(0);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    // Recreate puzzle pieces with current settings
+    createPuzzlePieces(image).then(() => {
+      setLoading(false);
+    });
+  };
+
+  const PRESET_IMAGES = [
+    { id: 'elephant', src: elephant, title: 'African Elephant', description: 'Majestic elephant in its natural habitat' },
+    { id: 'pyramid', src: pyramid, title: 'Egyptian Pyramid', description: 'Ancient pyramid of Giza' },
+    { id: 'african', src: african, title: 'African Culture', description: 'Traditional African cultural scene' }
+  ];
+
+  // Add difficulty change handler
+  const handleDifficultyChange = async (newDifficulty) => {
+    // Show loading toast
+    toast.loading('Changing difficulty level...', {
+      id: 'difficulty-change',
+      duration: 1000,
+    });
+
+    // Update state first
+    setSelectedDifficulty(newDifficulty);
+    setDifficulty(newDifficulty.id);
+
+    // Only recreate puzzle if there's an image
+    if (image) {
+      setLoading(true);
+      try {
+        // Wait for piece creation to complete
+        await createPuzzlePieces(image);
+        // Reset game state after pieces are created
+        setGameState('playing');
+        setIsTimerRunning(true);
+        setCompletedPieces(0);
+        setProgress(0);
+        setTimeElapsed(0);
+
+        // Show success toast
+        toast.success(`Difficulty changed to ${newDifficulty.label}`, {
+          id: 'difficulty-change',
         });
-      }}
-      isOpen={showImageSelection}
-      onClose={() => setShowImageSelection(false)}
-    />
+      } catch (error) {
+        console.error('Error creating puzzle pieces:', error);
+        toast.error('Failed to change difficulty', {
+          id: 'difficulty-change',
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
-    {/* Upgrade Modal */}
-    <UpgradeModal
-      isOpen={isModalOpen}
-      onClose={() => setIsModalOpen(false)}
-      onUpgrade={() => navigate("/payment-plans")}
-    />
+  return (
+    <div className="w-full h-screen flex flex-col bg-gradient-to-b from-gray-900 to-gray-800">
+      {/* Main Header */}
+      <header className="px-4 py-3 bg-gray-800/90 backdrop-blur-sm border-b border-gray-700 shadow-lg">
+        <div className="container mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Left Section: Title and Image Selection */}
+            <div className="flex flex-wrap items-center gap-4">
+              <h1 className="text-2xl font-bold text-white">Cultural Puzzle</h1>
+              <button
+                onClick={() => setShowImageSelection(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all transform hover:scale-105"
+              >
+                <Image className="w-5 h-5 mr-2" />
+                <span>Select Image</span>
+              </button>
+            </div>
 
-    {/* Share Modal */}
-    {showShareModal && <ShareModal />}
-  </div>
-);
+            {/* Right Section: Timer and Controls */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 bg-gray-700/50 px-4 py-2 rounded-lg">
+                <Clock className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-mono text-lg">
+                  {formatTime(timeElapsed)}
+                </span>
+              </div>
+              {gameState !== 'initial' && (
+                <button
+                  onClick={togglePause}
+                  className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all transform hover:scale-105"
+                >
+                  {gameState === 'playing' ?
+                    <Pause className="w-6 h-6" /> :
+                    <Play className="w-6 h-6" />
+                  }
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Progress and Difficulty Section */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            {totalPieces > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-gray-300 text-sm">Progress</span>
+                <div className="flex-1 h-3 bg-gray-700/30 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-white font-medium min-w-[3rem] text-right">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+            )}
+            <div className="flex justify-end">
+              <DifficultyBar
+                selectedDifficulty={selectedDifficulty}
+                onSelect={handleDifficultyChange}
+              />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Game Area */}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Puzzle Container */}
+        <div ref={containerRef} className="w-full h-full" />
+
+        {/* Floating Controls */}
+        <div className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 bg-gray-800/90 backdrop-blur-sm p-2 rounded-lg shadow-lg">
+          <ControlButton icon={<ZoomIn />} onClick={handleZoomIn} tooltip="Zoom In" />
+          <ControlButton icon={<ZoomOut />} onClick={handleZoomOut} tooltip="Zoom Out" />
+          <div className="w-full h-px bg-gray-700" />
+          <ControlButton icon={<Maximize2 />} onClick={handleResetView} tooltip="Reset View" />
+          <ControlButton icon={<RotateCcw />} onClick={handleResetGame} tooltip="Reset Puzzle" />
+          <ControlButton icon={<RefreshCw />} onClick={replayPuzzle} tooltip="Replay Puzzle" />
+          <ControlButton
+            icon={<Image />}
+            onClick={() => setShowThumbnail(!showThumbnail)}
+            tooltip="Toggle Reference"
+            active={showThumbnail}
+          />
+        </div>
+
+        {/* Reference Image */}
+        <AnimatePresence>
+          {showThumbnail && image && (
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="fixed left-4 top-24 p-3 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-xl"
+            >
+              <img
+                src={image}
+                alt="Reference"
+                className="w-40 md:w-48 h-auto rounded border border-gray-700"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Loading Overlay */}
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 flex items-center justify-center bg-gray-900/75 backdrop-blur-sm"
+            >
+              <div className="flex flex-col items-center gap-4 p-6 rounded-lg bg-gray-800/90">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <div className="text-xl text-white font-medium">Loading puzzle...</div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Image Selection Modal */}
+      <ImageSelectionModal
+        images={PRESET_IMAGES}
+        onSelect={(img) => {
+          setImage(img.src);
+          createPuzzlePieces(img.src).then(() => {
+            setLoading(false);
+            setGameState('playing');
+            setIsTimerRunning(true);
+            setCompletedPieces(0);
+            setProgress(0);
+            setTimeElapsed(0);
+          });
+        }}
+        isOpen={showImageSelection}
+        onClose={() => setShowImageSelection(false)}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpgrade={() => navigate("/payment-plans")}
+      />
+
+      {/* Share Modal */}
+      {showShareModal && <ShareModal />}
+    </div>
+  );
 }; // Add missing closing brace for PuzzleGame component
 
 // Add the ControlButton component as a separate component
